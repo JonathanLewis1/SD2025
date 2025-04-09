@@ -1,3 +1,4 @@
+
 .App {
   text-align: center;
 }
@@ -35,4 +36,21 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+/* 👇 Add these */
+.names-container {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-top: 20px;
+}
+
+.name {
+  background-color: #61dafb;
+  color: #000;
+  padding: 8px 12px;
+  border-radius: 5px;
+  font-weight: bold;
 }
