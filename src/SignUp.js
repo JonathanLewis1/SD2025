@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { createUserWithEmailAndPassword } from 'firebase/auth';
 import { auth } from './firebase';
 import { useNavigate } from 'react-router-dom';
+import './App.css';
 
 const SignUp = () => {
   const [firstName, setFirstName] = useState('');
@@ -24,6 +25,7 @@ const SignUp = () => {
   };
 
   return (
+    <div className = "login-wrapper">
     <div className="signup-container">
       <h2>Create Account</h2>
       {error && <p style={{ color: 'red' }}>{error}</p>}
@@ -65,6 +67,7 @@ const SignUp = () => {
         </label>
         <button type="submit">Sign Up</button>
       </form>
+    </div>
     </div>
   );
 };
