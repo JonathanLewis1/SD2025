@@ -15,6 +15,22 @@ const SignUp = () => {
 
   const handleSignUp = async (e) => {
     e.preventDefault();
+    if (!firstName) {
+      setError('First Name is required');
+      return;
+    }
+    if (!lastName) {
+      setError('Last Name is required');
+      return;
+    }
+    if (!email) {
+      setError('Email is required');
+      return;
+    }
+    if (!password) {
+      setError('Password is required');
+      return;
+    }
     try {
       await createUserWithEmailAndPassword(auth, email, password);
       // You can optionally save the user's role + name in Firestore here
@@ -29,7 +45,7 @@ const SignUp = () => {
     <div className="signup-container">
       <h2>Create Account</h2>
       {error && <p style={{ color: 'red' }}>{error}</p>}
-      <form onSubmit={handleSignUp}>
+      <form onSubmit={handleSignUp} noValidate>
         <input 
           type="text" 
           placeholder="First Name" 
