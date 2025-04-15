@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { useNavigate } from 'react-router-dom';
 import '../../App.css';
@@ -36,16 +36,20 @@ const SignUp = () => {
     }
     try {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-    
-      // Save extra data to Firestore
-      await setDoc(doc(db, "users", user.uid), {
-        firstName,
-        lastName,
-        role,
-        email,
-        createdAt: new Date().toISOString(),
-      });
+const user = userCredential.user;
+
+// Send verification email
+await sendEmailVerification(user);
+
+// Save extra data to Firestore
+await setDoc(doc(db, "users", user.uid), {
+  firstName,
+  lastName,
+  role,
+  email,
+  createdAt: new Date().toISOString(),
+});
+
     
       navigate('/');
     } catch (err) {

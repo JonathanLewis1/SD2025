@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { signInWithEmailAndPassword } from 'firebase/auth';
+import { signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { useNavigate, Link } from 'react-router-dom';
 import '../../App.css';
@@ -8,10 +8,13 @@ const Login = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [resetMessage, setResetMessage] = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    setError('');
+    setResetMessage('');
     if (!email) {
       setError('Email is required');
       return;
@@ -21,10 +24,33 @@ const Login = () => {
       return;
     }
     try {
-      await signInWithEmailAndPassword(auth, email, password);
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+    
+      if (!user.emailVerified) {
+        setError('Please verify your email before logging in.');
+        await signOut(auth); // Prevent access
+        return;
+      }
+    
       navigate('/home');
     } catch (err) {
       setError('Invalid email or password');
+    }
+  };
+
+  const handleForgotPassword = async () => {
+    setError('');
+    setResetMessage('');
+    if (!email) {
+      setError('Please enter your email first');
+      return;
+    }
+    try {
+      await sendPasswordResetEmail(auth, email);
+      setResetMessage('Password reset email sent! Check your inbox.');
+    } catch (err) {
+      setError('Failed to send reset email. Please check your email.');
     }
   };
 
@@ -34,6 +60,7 @@ const Login = () => {
         <h1 style={styles.title}>Welcome to Craft Nest!</h1>
         <h2 style={styles.subtitle}>Login</h2>
         {error && <p style={styles.error}>{error}</p>}
+        {resetMessage && <p style={styles.success}>{resetMessage}</p>}
 
         <form onSubmit={handleSubmit} noValidate style={styles.form}>
           <input
@@ -54,6 +81,10 @@ const Login = () => {
           />
           <button type="submit" style={styles.button}>Log In</button>
         </form>
+
+        <p style={styles.forgotPassword} onClick={handleForgotPassword}>
+          Forgot your password?
+        </p>
 
         <p style={styles.signupText}>
           New here? <Link to="/signup" style={styles.link}>Sign up now!</Link>
@@ -121,8 +152,20 @@ const styles = {
   },
   error: {
     color: 'red',
-    marginBottom: 16,
+    marginBottom: 12,
     fontSize: 14,
+  },
+  success: {
+    color: 'green',
+    marginBottom: 12,
+    fontSize: 14,
+  },
+  forgotPassword: {
+    marginTop: 12,
+    fontSize: 14,
+    color: '#3b82f6',
+    textAlign: 'right',
+    cursor: 'pointer',
   },
   signupText: {
     color: '#6b7280',
