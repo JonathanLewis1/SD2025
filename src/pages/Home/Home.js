@@ -37,7 +37,7 @@ const Home = () => {
 
 const styles = {
   container: {
-    backgroundColor: '#111111',
+    backgroundColor: '#feffdf',
     color: '#ffffff',
     padding: 32,
     minHeight: '100vh',
@@ -59,7 +59,7 @@ const styles = {
     gap: 24,
   },
   section: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#668ba4',
     padding: 24,
     borderRadius: 16,
     border: '1px solid #2a2a2a',

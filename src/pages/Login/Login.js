@@ -65,7 +65,7 @@ const Login = () => {
 
 const styles = {
   wrapper: {
-    backgroundColor: '#111111',
+    backgroundColor: '#feffdf',
     minHeight: '100vh',
     display: 'flex',
     justifyContent: 'center',
@@ -99,7 +99,7 @@ const styles = {
     gap: 16,
   },
   input: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#668ba4',
     color: '#ffffff',
     padding: '12px 16px',
     borderRadius: 24,
