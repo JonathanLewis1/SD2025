@@ -89,3 +89,16 @@ form {
   gap: 1rem;              
   margin-top: 1rem;
 }
+
+.logout-button {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  padding: 0.5rem 1rem;
+  font-size: 1rem;
+  background-color: #dc3545;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+}
