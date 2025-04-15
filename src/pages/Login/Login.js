@@ -73,7 +73,7 @@ const styles = {
     padding: 24,
   },
   container: {
-    backgroundColor: '#1a1a1a',
+    backgroundColor: '#dde0ab',
     padding: 32,
     borderRadius: 16,
     border: '1px solid #2a2a2a',
@@ -82,7 +82,7 @@ const styles = {
     boxShadow: '0 0 10px rgba(0,0,0,0.5)',
   },
   title: {
-    color: '#ffffff',
+    color: '#97cba9',
     fontSize: 28,
     fontWeight: 'bold',
     marginBottom: 12,
