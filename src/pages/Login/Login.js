@@ -3,6 +3,8 @@ import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { useNavigate, Link } from 'react-router-dom';
 import '../../App.css';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -21,8 +23,25 @@ const Login = () => {
       return;
     }
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      navigate('/home');
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+  
+      const userDocRef = doc(db, 'users', user.uid);
+      const userDocSnap = await getDoc(userDocRef);
+  
+      if (userDocSnap.exists()) {
+        const userData = userDocSnap.data();
+        const role = userData.role;
+  
+        if (role === 'seller') {
+          navigate('/sellerpage');
+        } else {
+          navigate('/home');
+        }
+      } else {
+        setError("User data not found.");
+      }
+  
     } catch (err) {
       setError('Invalid email or password');
     }
