@@ -1,5 +1,6 @@
 ### Codecov badge
-[![codecov](https://codecov.io/gh/JonathanLewis1/SD2025/branch/master/graph/badge.svg?token=${{ 35d183b4-6298-4185-83c3-13df4503451e}})](https://codecov.io/gh/JonathanLewis1/SD2025) 
+[![codecov](https://codecov.io/gh/JonathanLewis1/SD2025/branch/master/graph/badge.svg?token=35d183b4-6298-4185-83c3-13df4503451e)](https://codecov.io/gh/JonathanLewis1/SD2025)
+ 
 
 ### Site deployed on Azure
 https://polite-sand-0dd94df1e.6.azurestaticapps.net
