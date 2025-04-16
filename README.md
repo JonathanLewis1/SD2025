@@ -1,5 +1,5 @@
 ### Codecov badge
-[![Coverage](https://img.shields.io/codecov/c/github/JonathanLewis1/SD2025/master.svg?token=35d183b4-6298-4185-83c3-13df4503451e)](https://codecov.io/gh/JonathanLewis1/SD2025)
+[![Coverage](https://img.shields.io/codecov/c/github/JonathanLewis1/SD2025?token=35d183b4-6298-4185-83c3-13df4503451e&branch=master)](https://codecov.io/gh/JonathanLewis1/SD2025)
 
 
 ### Site deployed on Azure
