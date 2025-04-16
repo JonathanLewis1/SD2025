@@ -1,9 +1,11 @@
-# Getting Started with Create React App
-
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+### Codecov badge
+[![codecov](https://codecov.io/gh/JonathanLewis1/SD2025/branch/master/graph/badge.svg?token=${{ 35d183b4-6298-4185-83c3-13df4503451e}})](https://codecov.io/gh/JonathanLewis1/SD2025) 
 
 ### Site deployed on Azure
 https://polite-sand-0dd94df1e.6.azurestaticapps.net
+
+# Getting Started with Create React App
+This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
 
 ## Available Scripts
 In the project directory, you can run:
