@@ -1,35 +1,35 @@
-import React from 'react';
-import '../../App.css';
+import React, { useEffect, useState } from 'react';
+import { collection, getDocs } from 'firebase/firestore';
+import { db } from '../../firebase';
+import ProductCard from './ProductCard';
 
 const Home = () => {
+  const [products, setProducts] = useState([]);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      const querySnapshot = await getDocs(collection(db, 'products'));
+      const data = querySnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+      setProducts(data);
+    };
+
+    fetchProducts();
+  }, []);
+
   return (
     <div style={styles.container}>
-      <h1 style={styles.heading}>Welcome to Craft Nest 🪵</h1>
-      <p style={styles.subheading}>
-        Discover hand-made treasures, one piece at a time.
-      </p>
-
-      <div style={styles.sectionsWrapper}>
-        <div style={styles.section}>
-          <h2 style={styles.sectionTitle}>🧶 Explore Unique Products</h2>
-          <p style={styles.sectionText}>
-            Browse a curated collection of artisan-made goods, from handmade pottery to custom woodwork.
-          </p>
-        </div>
-
-        <div style={styles.section}>
-          <h2 style={styles.sectionTitle}>👩‍🎨 Meet the Makers</h2>
-          <p style={styles.sectionText}>
-            Learn about the creators behind the craft — their stories, process, and inspiration.
-          </p>
-        </div>
-
-        <div style={styles.section}>
-          <h2 style={styles.sectionTitle}>🛒 Shop Ethically</h2>
-          <p style={styles.sectionText}>
-            Support independent makers and small businesses with every purchase you make.
-          </p>
-        </div>
+      <h1 style={styles.heading}>Explore Products</h1>
+      <div style={styles.productGrid}>
+        {products.length > 0 ? (
+          products.map(product => (
+            <ProductCard key={product.id} product={product} />
+          ))
+        ) : (
+          <p>No products found.</p>
+        )}
       </div>
     </div>
   );
@@ -38,43 +38,20 @@ const Home = () => {
 const styles = {
   container: {
     backgroundColor: '#feffdf',
-    color: '#ffffff',
+    color: '#333',
     padding: 32,
     minHeight: '100vh',
   },
   heading: {
     fontSize: 36,
     fontWeight: 'bold',
-    marginBottom: 8,
+    marginBottom: 24,
     color: '#3b82f6',
   },
-  subheading: {
-    fontSize: 18,
-    color: '#cccccc',
-    marginBottom: 32,
-  },
-  sectionsWrapper: {
+  productGrid: {
     display: 'flex',
-    flexDirection: 'column',
-    gap: 24,
-  },
-  section: {
-    backgroundColor: '#668ba4',
-    padding: 24,
-    borderRadius: 16,
-    border: '1px solid #2a2a2a',
-    maxWidth: 700,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 12,
-    color: '#ffffff',
-  },
-  sectionText: {
-    color: '#cccccc',
-    fontSize: 16,
-    lineHeight: 1.6,
+    flexWrap: 'wrap',
+    gap: 16,
   },
 };
 
