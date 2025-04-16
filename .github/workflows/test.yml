@@ -23,3 +23,9 @@ jobs:
 
       - name: Run coverage
         run: npm run coverage
+
+      # Added this to get the badge 
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v3
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }} # Add this if your repo is private
