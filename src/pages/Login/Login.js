@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from 'firebase/auth';
 import { auth } from '../../firebase';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
 import { useNavigate, Link } from 'react-router-dom';
 import '../../App.css';
 
@@ -15,6 +17,7 @@ const Login = () => {
     e.preventDefault();
     setError('');
     setResetMessage('');
+  
     if (!email) {
       setError('Email is required');
       return;
@@ -23,21 +26,41 @@ const Login = () => {
       setError('Password is required');
       return;
     }
+  
     try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-    
+  
       if (!user.emailVerified) {
         setError('Please verify your email before logging in.');
         await signOut(auth); // Prevent access
         return;
       }
-    
-      navigate('/home');
+  
+      // Get user role from Firestore
+      const userDoc = await getDoc(doc(db, 'users', user.uid));
+      if (!userDoc.exists()) {
+        setError('User data not found.');
+        return;
+      }
+  
+      const role = userDoc.data().role;
+  
+      // Redirect based on role
+      if (role === 'buyer') {
+        navigate('/buyer-dashboard');
+      } else if (role === 'seller') {
+        navigate('/seller-dashboard');
+      } else {
+        setError('User role not recognized.');
+      }
+  
     } catch (err) {
+      console.error(err);
       setError('Invalid email or password');
     }
   };
+  
 
   const handleForgotPassword = async () => {
     setError('');
