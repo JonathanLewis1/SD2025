@@ -5,6 +5,8 @@ import NotFoundPage from './pages/NotFoundPage.js';
 import Login from './pages/Login/Login.js';
 import SignUp from './pages/SignUp/SignUp.js';
 import Home from './pages/Home/Home.js';
+import SellerPage from './pages/SellerPage/SellerPage.js';
+
 
 const App = () => {
   return (
@@ -16,6 +18,7 @@ const App = () => {
         <Route path="/buyer-dashboard" element={<Home />} />
         <Route path="/seller-dashboard" element={<h1>Seller Dashboard (Coming Soon)</h1>} />
         <Route path = "/home" element={<Home />} />
+        <Route path = "/sellerpage" element = {<SellerPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </Router>

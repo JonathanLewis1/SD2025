@@ -36,12 +36,15 @@ const Home = () => {
 };
 
 const styles = {
-  container: {
-    backgroundColor: '#feffdf',
-    color: '#333',
-    padding: 32,
-    minHeight: '100vh',
-  },
+    container: {
+        backgroundColor: '#feffdf',
+        minHeight: '100vh',
+        display: 'flex',
+        justifyContent: 'center', 
+        alignItems: 'center',  
+        flexDirection: 'column',  
+        padding: 32,
+      },
   heading: {
     fontSize: 36,
     fontWeight: 'bold',
