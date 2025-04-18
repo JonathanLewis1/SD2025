@@ -44,7 +44,7 @@ test('Given a buyer is on login page, when they enter their details, then the bu
   fireEvent.change(screen.getByPlaceholderText(/password/i), {target:{value:'12345'},});
   fireEvent.click(screen.getByRole('button', {name:/log in/i}));
   await waitFor(() => {
-    expect(mockNavigate).toHaveBeenCalledWith('/buyer-dashboard');
+    expect(mockNavigate).toHaveBeenCalledWith('/home');
   });
 });
 
@@ -58,7 +58,21 @@ test('Given a seller is on login page, when they enter their details, then the s
   fireEvent.change(screen.getByPlaceholderText(/password/i), {target: {value:'12345'},});
   fireEvent.click(screen.getByRole('button', { name: /log in/i }));
   await waitFor(() => {
-    expect(mockNavigate).toHaveBeenCalledWith('/seller-dashboard');
+    expect(mockNavigate).toHaveBeenCalledWith('/sellerpage');
+  });
+});
+
+//Admin Screen
+test('Given a admin is on login page, when they enter their details, then the admin page should load',async ()=>{
+  mockSignInWithEmailAndPassword.mockResolvedValue({user: {uid: 'admin123',emailVerified:true},});
+  mockGetDoc.mockResolvedValue({exists:()=>true,data:()=>({role: 'admin'}),});
+
+  renderWithRouter(<Login />);
+  fireEvent.change(screen.getByPlaceholderText(/email/i), {target: {value:'correct@admin.com'},});
+  fireEvent.change(screen.getByPlaceholderText(/password/i), {target: {value:'12345'},});
+  fireEvent.click(screen.getByRole('button', { name: /log in/i }));
+  await waitFor(() => {
+    expect(mockNavigate).toHaveBeenCalledWith('/admin');
   });
 });
 

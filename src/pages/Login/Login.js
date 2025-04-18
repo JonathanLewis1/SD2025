@@ -52,10 +52,13 @@ const Login = () => {
   
       // Redirect based on role
       if (role === 'buyer') {
-        navigate('/buyer-dashboard');
+        navigate('/home');
       } else if (role === 'seller') {
         navigate('/sellerpage');
-      } else {
+      }else if (role === 'admin') {
+        navigate('/admin');
+      }
+      else {
         setError('User role not recognized.');
       }
   

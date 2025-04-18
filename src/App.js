@@ -6,6 +6,7 @@ import Login from './pages/Login/Login.js';
 import SignUp from './pages/SignUp/SignUp.js';
 import Home from './pages/Home/Home.js';
 import SellerPage from './pages/SellerPage/SellerPage.js';
+import Admin from './pages/Admin/Admin.js';
 import Layout from './components/Layout.js';
 import ProtectedRoute from './components/ProtectedRoute'; // update path as needed
 

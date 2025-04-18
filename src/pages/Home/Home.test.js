@@ -4,8 +4,8 @@ import { BrowserRouter } from 'react-router-dom';
 
 const renderWithRouter = (ui) => render(<BrowserRouter>{ui}</BrowserRouter>);
 //new screen
-test('Given a user is on home page, when they enter their details, then the home page should load',async()=>{
+test('Given a buyer is on home page, when they view the screen, then the Explore Products heading should be displayed',async()=>{
     // render(<Login/>);
     render(<Home />);
-    expect(screen.getByText(/This will be the home page/i)).toBeInTheDocument();
+    expect(screen.getByText(/explore products/i)).toBeInTheDocument();
 });
