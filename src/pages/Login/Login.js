@@ -50,7 +50,7 @@ const Login = () => {
       if (role === 'buyer') {
         navigate('/buyer-dashboard');
       } else if (role === 'seller') {
-        navigate('/seller-dashboard');
+        navigate('/sellerpage');
       } else {
         setError('User role not recognized.');
       }

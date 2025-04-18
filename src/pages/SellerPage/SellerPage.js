@@ -1,59 +1,144 @@
-import React from 'react';
-import '../../App.css';
+import React, { useState, useEffect } from 'react';
+import { db, auth } from '../../firebase';
+import {
+  collection,
+  query,
+  where,
+  getDocs,
+  addDoc,
+  deleteDoc,
+  doc
+} from 'firebase/firestore';
+import { onAuthStateChanged } from 'firebase/auth';
+import { signOut } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
 
-const Home = () => {
+
+
+const SellerPage = () => {
+const navigate = useNavigate();
+
+const handleLogout = async () => {
+  try {
+    await signOut(auth);
+    navigate('/login');
+  } catch (error) {
+    console.error("Error logging out:", error);
+  }
+};
+
+
+  const [products, setProducts] = useState([]);
+  const [form, setForm] = useState({
+    name: '',
+    price: '',
+    description: '',
+    imageUrl: ''
+  });
+  const [userEmail, setUserEmail] = useState(null);
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user && user.email) {
+        setUserEmail(user.email);
+        fetchProducts(user.email);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const fetchProducts = async (email) => {
+    const q = query(collection(db, 'products'), where('email', '==', email));
+    const snapshot = await getDocs(q);
+    const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    setProducts(items);
+  };
+
+  const handleUpload = async (e) => {
+    e.preventDefault();
+
+    if (!userEmail) {
+      alert('You must be logged in to add a product.');
+      return;
+    }
+
+    try {
+      await addDoc(collection(db, 'products'), {
+        name: form.name,
+        price: parseFloat(form.price),
+        description: form.description,
+        image: form.imageUrl,
+        email: userEmail,
+        dateAdded: new Date().toISOString()
+      });
+
+      setForm({ name: '', price: '', description: '', imageUrl: '' });
+      fetchProducts(userEmail);
+    } catch (error) {
+      console.error("Error adding product:", error.message);
+  alert("Failed to add product: " + error.message);
+    }
+  };
+
+  const deleteProduct = async (productId) => {
+    try {
+      await deleteDoc(doc(db, 'products', productId));
+      if (userEmail) fetchProducts(userEmail);
+    } catch (error) {
+      console.error("Error deleting product:", error);
+    }
+  };
+
   return (
-    <section style={styles.container}>
-      <h1 style={styles.heading}>You are a seller</h1>
-      
-    </section>
+    <div>
+      <h1>Your Products</h1>
+      <form onSubmit={handleUpload}>
+        <input
+          placeholder="Name"
+          value={form.name}
+          onChange={e => setForm({ ...form, name: e.target.value })}
+          required
+        />
+        <input
+          type="number"
+          placeholder="Price"
+          value={form.price}
+          onChange={e => setForm({ ...form, price: e.target.value })}
+          required
+        />
+        <textarea
+          placeholder="Description"
+          value={form.description}
+          onChange={e => setForm({ ...form, description: e.target.value })}
+          required
+        />
+        <input
+          type="text"
+          placeholder="Image URL"
+          value={form.imageUrl}
+          onChange={e => setForm({ ...form, imageUrl: e.target.value })}
+          required
+        />
+        <button type="submit">Add Product</button>
+      </form>
+
+      <div>
+        {products.map(prod => (
+          <div key={prod.id} style={{ marginTop: 20 }}>
+            <img src={prod.image} alt={prod.name} width={150} />
+            <h3>{prod.name}</h3>
+            <p>Price: R{prod.price}</p>
+            <p>{prod.description}</p>
+            <button onClick={() => deleteProduct(prod.id)}>Delete</button>
+          </div>
+        ))}
+      </div>
+      <button onClick={handleLogout} style={{ marginBottom: '1rem' }}>
+  Log Out
+</button>
+    </div>
   );
 };
 
-const styles = {
-    container: {
-        backgroundColor: '#feffdf',
-        minHeight: '100vh',
-        display: 'flex',
-        justifyContent: 'center',  
-        alignItems: 'center',     
-        flexDirection: 'column',  
-        padding: 32,
-      },
-  heading: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#3b82f6',
-  },
-  subheading: {
-    fontSize: 18,
-    color: '#cccccc',
-    marginBottom: 32,
-  },
-  sectionsWrapper: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 24,
-  },
-  section: {
-    backgroundColor: '#668ba4',
-    padding: 24,
-    borderRadius: 16,
-    border: '1px solid #2a2a2a',
-    maxWidth: 700,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    marginBottom: 12,
-    color: '#ffffff',
-  },
-  sectionText: {
-    color: '#cccccc',
-    fontSize: 16,
-    lineHeight: 1.6,
-  },
-};
-
-export default Home;
+export default SellerPage;
