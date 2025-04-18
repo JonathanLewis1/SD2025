@@ -108,11 +108,12 @@ test('Given a user is on the sign up page, when they eneter an email already in 
     expect(await screen.findByText(/email already in use/i)).toBeInTheDocument();
   });
 
-  test('Given a user is on sign up page, when they change the role, then it updates the role state', async () => {
+//Correct Seller and Buyer role updates in dropdown   
+test('Given a user is on sign up page, when they change the role, then it updates the role state', async () => {
     mockCreateUserWithEmailAndPassword.mockResolvedValue({ user: { uid: 'test123' } });
     mockSendEmailVerification.mockResolvedValue();
     mockSetDoc.mockResolvedValue();
-    
+
     renderWithRouter(<SignUp />);
     const select = screen.getByLabelText(/role/i);
     fireEvent.change(select, { target: { value: 'seller' } });
@@ -122,6 +123,6 @@ test('Given a user is on the sign up page, when they eneter an email already in 
     fireEvent.change(screen.getByPlaceholderText(/password/i), { target: { value: '123456' } });
     fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
     await waitFor(() => {
-      expect(mockNavigate).toHaveBeenCalledWith('/login');
+        expect(mockNavigate).toHaveBeenCalledWith('/login');
     });
-  });
+});
