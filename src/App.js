@@ -1,3 +1,5 @@
+
+
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 
@@ -9,30 +11,52 @@ import SellerPage from './pages/SellerPage/SellerPage.js';
 import Admin from './pages/Admin/Admin.js';
 import Layout from './components/Layout.js';
 import ProductDetail from './pages/Home/ProductDetail.js';
-
-
+import ProtectedRoute from './components/ProtectedRoute'; // if you're using role-based routing
 
 const App = () => {
   return (
     <Router>
       <Layout>
-      <Routes>
-      <Route path="/" element={<Navigate to="/login" />} />
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<SignUp />} />
-        <Route path="/admin" element={<Admin />} />
-        <Route path="/home" element={<Home />} />
-        {/* <Route path="/sellerpage" element={<h1>Seller Dashboard (Coming Soon)</h1>} /> */}
-        <Route path = "/home" element={<Home />} />
-        <Route path = "/sellerpage" element = {<SellerPage />} />
-        <Route path="/product/:productId" element={<ProductDetail />} />
+        <Routes>
+          <Route path="/" element={<Navigate to="/login" />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/signup" element={<SignUp />} />
+          <Route path="/admin" element={<Admin />} />
 
-        <Route path="*" element={<NotFoundPage />} />
-      </Routes>
+          {/* Public product detail page */}
+          <Route path="/product/:productId" element={<ProductDetail />} />
+
+          {/* Role-protected routes (edit roles as needed) */}
+          <Route
+            path="/buyer-dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['buyer', 'seller', 'admin']}>
+                <Home />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/sellerpage"
+            element={
+              <ProtectedRoute allowedRoles={['seller', 'admin']}>
+                <SellerPage />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/seller-dashboard"
+            element={
+              <ProtectedRoute allowedRoles={['seller', 'admin']}>
+                <h1>Seller Dashboard (Coming Soon)</h1>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route path="*" element={<NotFoundPage />} />
+        </Routes>
       </Layout>
     </Router>
   );
 };
 
 export default App;
-
