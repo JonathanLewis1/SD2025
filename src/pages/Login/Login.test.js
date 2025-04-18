@@ -1,14 +1,14 @@
 //Mock-React Router navigation
 const mockNavigate=jest.fn();
 jest.mock('react-router-dom',()=>({
-  ...jest.requireActual('react-router-dom'),
-  useNavigate:()=>mockNavigate,
+    ...jest.requireActual('react-router-dom'),
+    useNavigate:()=>mockNavigate,
 }));
 
 //Mock-Firebase authentication and database module
 jest.mock('../../firebase',()=>({
-  auth:{},
-  db:{},
+    auth:{},
+    db:{},
 }));
 
 // Store references to these so we can override them per test
@@ -17,63 +17,63 @@ const mockGetDoc=jest.fn();
 const mockSendPasswordResetEmail=jest.fn();
 
 jest.mock('firebase/auth',()=>({
-  signInWithEmailAndPassword: (...args)=>mockSignInWithEmailAndPassword(...args),
-  sendPasswordResetEmail: (...args)=>mockSendPasswordResetEmail(...args),
-  signOut: jest.fn(),
+    signInWithEmailAndPassword: (...args)=>mockSignInWithEmailAndPassword(...args),
+    sendPasswordResetEmail: (...args)=>mockSendPasswordResetEmail(...args),
+    signOut: jest.fn(),
 }));
 
 jest.mock('firebase/firestore',()=>({
-  doc:jest.fn(()=>({})),
-  getDoc:(...args)=>mockGetDoc(...args),
+    doc:jest.fn(()=>({})),
+    getDoc:(...args)=>mockGetDoc(...args),
 }));
 
 
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import {render,screen,fireEvent,waitFor} from '@testing-library/react';
 import Login from './Login';
-import { BrowserRouter } from 'react-router-dom';
+import {BrowserRouter} from 'react-router-dom';
 
 const renderWithRouter = (ui)=> render(<BrowserRouter>{ui}</BrowserRouter>);
 
 //Buyer screen
 test('Given a buyer is on login page, when they enter their details, then the buyer page should load',async ()=>{
-  mockSignInWithEmailAndPassword.mockResolvedValue({user: { uid:'buyer123',emailVerified:true},});
-  mockGetDoc.mockResolvedValue({exists:()=>true,data:()=>({ role:'buyer'}),});
+    mockSignInWithEmailAndPassword.mockResolvedValue({user: { uid:'buyer123',emailVerified:true},});
+    mockGetDoc.mockResolvedValue({exists:()=>true,data:()=>({ role:'buyer'}),});
 
-  renderWithRouter(<Login />);
-  fireEvent.change(screen.getByPlaceholderText(/email/i), {target:{value:'correct@buyer.com'},});
-  fireEvent.change(screen.getByPlaceholderText(/password/i), {target:{value:'12345'},});
-  fireEvent.click(screen.getByRole('button', {name:/log in/i}));
-  await waitFor(() => {
-    expect(mockNavigate).toHaveBeenCalledWith('/home');
-  });
+    renderWithRouter(<Login />);
+    fireEvent.change(screen.getByPlaceholderText(/email/i), {target:{value:'correct@buyer.com'},});
+    fireEvent.change(screen.getByPlaceholderText(/password/i), {target:{value:'12345'},});
+    fireEvent.click(screen.getByRole('button', {name:/log in/i}));
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/home');
+    });
 });
 
 //Seller Screen
 test('Given a seller is on login page, when they enter their details, then the seller page should load',async ()=>{
-  mockSignInWithEmailAndPassword.mockResolvedValue({user: {uid: 'seller123',emailVerified:true},});
-  mockGetDoc.mockResolvedValue({exists:()=>true,data:()=>({role: 'seller'}),});
+    mockSignInWithEmailAndPassword.mockResolvedValue({user: {uid: 'seller123',emailVerified:true},});
+    mockGetDoc.mockResolvedValue({exists:()=>true,data:()=>({role: 'seller'}),});
 
-  renderWithRouter(<Login />);
-  fireEvent.change(screen.getByPlaceholderText(/email/i), {target: {value:'correct@seller.com'},});
-  fireEvent.change(screen.getByPlaceholderText(/password/i), {target: {value:'12345'},});
-  fireEvent.click(screen.getByRole('button', { name: /log in/i }));
-  await waitFor(() => {
-    expect(mockNavigate).toHaveBeenCalledWith('/sellerpage');
-  });
+    renderWithRouter(<Login />);
+    fireEvent.change(screen.getByPlaceholderText(/email/i), {target: {value:'correct@seller.com'},});
+    fireEvent.change(screen.getByPlaceholderText(/password/i), {target: {value:'12345'},});
+    fireEvent.click(screen.getByRole('button', { name: /log in/i }));
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/sellerpage');
+    });
 });
 
 //Admin Screen
 test('Given a admin is on login page, when they enter their details, then the admin page should load',async ()=>{
-  mockSignInWithEmailAndPassword.mockResolvedValue({user: {uid: 'admin123',emailVerified:true},});
-  mockGetDoc.mockResolvedValue({exists:()=>true,data:()=>({role: 'admin'}),});
+    mockSignInWithEmailAndPassword.mockResolvedValue({user: {uid: 'admin123',emailVerified:true},});
+    mockGetDoc.mockResolvedValue({exists:()=>true,data:()=>({role: 'admin'}),});
 
-  renderWithRouter(<Login />);
-  fireEvent.change(screen.getByPlaceholderText(/email/i), {target: {value:'correct@admin.com'},});
-  fireEvent.change(screen.getByPlaceholderText(/password/i), {target: {value:'12345'},});
-  fireEvent.click(screen.getByRole('button', { name: /log in/i }));
-  await waitFor(() => {
-    expect(mockNavigate).toHaveBeenCalledWith('/admin');
-  });
+    renderWithRouter(<Login />);
+    fireEvent.change(screen.getByPlaceholderText(/email/i), {target: {value:'correct@admin.com'},});
+    fireEvent.change(screen.getByPlaceholderText(/password/i), {target: {value:'12345'},});
+    fireEvent.click(screen.getByRole('button', { name: /log in/i }));
+    await waitFor(() => {
+      expect(mockNavigate).toHaveBeenCalledWith('/admin');
+    });
 });
 
 //Invalid details

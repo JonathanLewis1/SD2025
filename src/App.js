@@ -28,7 +28,7 @@ const App = () => {
 
           {/* Role-protected routes (edit roles as needed) */}
           <Route
-            path="/buyer-dashboard"
+            path="/home"
             element={
               <ProtectedRoute allowedRoles={['buyer', 'seller', 'admin']}>
                 <Home />

@@ -20,6 +20,7 @@ const SellerPage = () => {
     description: '',
     imageUrl: ''
   });
+  const [error, setError] = useState('');
   const [userEmail, setUserEmail] = useState(null);
 
   useEffect(() => {
@@ -44,7 +45,24 @@ const SellerPage = () => {
     e.preventDefault();
 
     if (!userEmail) {
-      alert('You must be logged in to add a product.');
+      setError('You must be logged in to add a product.');
+      return;
+    }
+    if (!form.name) {
+      setError('Name is required');
+      return;
+    }
+    if (!form.price) {
+      setError('Price is required');
+      return;
+    }
+    if (!form.description) {
+      setError('Description is required');
+      return;
+    }
+
+    if (!form.imageUrl) {
+      setError('Image URL is required');
       return;
     }
 
@@ -59,10 +77,11 @@ const SellerPage = () => {
       });
 
       setForm({ name: '', price: '', description: '', imageUrl: '' });
+      setError('');
       fetchProducts(userEmail);
     } catch (error) {
       console.error("Error adding product:", error.message);
-  alert("Failed to add product: " + error.message);
+      alert("Failed to add product: " + error.message);
     }
   };
 
@@ -78,7 +97,7 @@ const SellerPage = () => {
   return (
     <div>
       <h1>Your Products</h1>
-      <form onSubmit={handleUpload}>
+      <form onSubmit={handleUpload} noValidate>
         <input
           placeholder="Name"
           value={form.name}
@@ -107,6 +126,7 @@ const SellerPage = () => {
         />
         <button type="submit">Add Product</button>
       </form>
+      {error && <p style={{ color: 'red' }}>{error}</p>}
 
       <div>
         {products.map(prod => (
