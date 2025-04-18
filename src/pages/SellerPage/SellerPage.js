@@ -10,23 +10,8 @@ import {
   doc
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
-import { signOut } from 'firebase/auth';
-import { useNavigate } from 'react-router-dom';
-
-
 
 const SellerPage = () => {
-const navigate = useNavigate();
-
-const handleLogout = async () => {
-  try {
-    await signOut(auth);
-    navigate('/login');
-  } catch (error) {
-    console.error("Error logging out:", error);
-  }
-};
-
 
   const [products, setProducts] = useState([]);
   const [form, setForm] = useState({
@@ -134,9 +119,6 @@ const handleLogout = async () => {
           </div>
         ))}
       </div>
-      <button onClick={handleLogout} style={{ marginBottom: '1rem' }}>
-  Log Out
-</button>
     </div>
   );
 };

@@ -6,13 +6,27 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
+import { signOut } from 'firebase/auth';
+import { auth } from '../firebase';
+import { useNavigate } from 'react-router-dom';
+
 
 export default function Header() {
+  const navigate = useNavigate();
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigate('/login');
+    } catch (error) {
+      console.error("Error logging out:", error);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Top Row: Logo, Nav, Cart/Logout */}
       <View style={styles.topRow}>
-        <Text style={styles.logo}>MyLogo</Text>
+      <img src="/craftnest_icon_192x192.png" alt="Logo" style={styles.logoImage} />
 
         <View style={styles.navButtons}>
           <TouchableOpacity style={styles.navButton}>
@@ -33,7 +47,7 @@ export default function Header() {
           <TouchableOpacity style={styles.actionButton}>
             <Text>Cart 🛒</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.actionButton}>
+          <TouchableOpacity onPress={handleLogout} style={styles.actionButton}>
             <Text>Logout 🚪</Text>
           </TouchableOpacity>
         </View>
@@ -109,6 +123,10 @@ const styles = StyleSheet.create({
   searchInput: {
     flex: 1,
     fontSize: 14,
+  },
+  logoImage: {
+    height: 40,
+    objectFit: 'contain',
   },
 });
 
