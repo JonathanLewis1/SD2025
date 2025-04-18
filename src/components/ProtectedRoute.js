@@ -1,4 +1,3 @@
-// src/components/ProtectedRoute.js
 import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { auth } from '../firebase';
@@ -9,6 +8,7 @@ import { db } from '../firebase';
 export default function ProtectedRoute({ children, allowedRoles }) {
   const [userRole, setUserRole] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
@@ -18,22 +18,34 @@ export default function ProtectedRoute({ children, allowedRoles }) {
         return;
       }
 
-      const docRef = doc(db, 'users', user.uid);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        setUserRole(docSnap.data().role);
+      try {
+        const docRef = doc(db, 'users', user.uid);
+        const docSnap = await getDoc(docRef);
+
+        if (docSnap.exists()) {
+          setUserRole(docSnap.data().role);
+        } else {
+          setError('User role not found.');
+        }
+      } catch (err) {
+        setError('Error fetching user role.');
       }
+
       setLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
-  if (loading) return null;
+  if (loading) return <div>Loading...</div>; // or a loading spinner
 
-  // Allow access if user is admin or their role matches the route
-  if (!userRole || (!allowedRoles.includes(userRole) && userRole !== 'admin')) {
-    return <Navigate to="/unauthorized" />; // or "/login"
+  if (error) {
+    return <Navigate to="/error" />; // You can create an error page or handle it differently
+  }
+
+  // If no user or role mismatch, redirect to login or unauthorized page
+  if (!userRole || !allowedRoles.includes(userRole)) {
+    return <Navigate to="/login" />;
   }
 
   return children;
