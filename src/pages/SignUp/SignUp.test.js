@@ -11,7 +11,7 @@ jest.mock('../../firebase',()=>({
     db:{},
 }));
 
-// Store references to these so we can override them per test
+//Store references to these so we can override them per test
 const mockCreateUserWithEmailAndPassword=jest.fn();
 const mockSendEmailVerification=jest.fn();
 const mockGetDoc=jest.fn();
