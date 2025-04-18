@@ -5,8 +5,6 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { useNavigate, Link } from 'react-router-dom';
 import '../../App.css';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
 
 const Login = () => {
   const [email, setEmail] = useState('');
