@@ -6,11 +6,13 @@ import Login from './pages/Login/Login.js';
 import SignUp from './pages/SignUp/SignUp.js';
 import Home from './pages/Home/Home.js';
 import SellerPage from './pages/SellerPage/SellerPage.js';
+import Layout from './components/Layout.js';
 
 
 const App = () => {
   return (
     <Router>
+      <Layout>
       <Routes>
       <Route path="/" element={<Navigate to="/login" />} />
         <Route path="/login" element={<Login />} />
@@ -21,6 +23,7 @@ const App = () => {
         <Route path = "/sellerpage" element = {<SellerPage />} />
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
+      </Layout>
     </Router>
   );
 };
