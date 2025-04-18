@@ -62,6 +62,20 @@ test('Given a seller is on login page, when they enter their details, then the s
   });
 });
 
+//Admin Screen
+test('Given a admin is on login page, when they enter their details, then the admin page should load',async ()=>{
+  mockSignInWithEmailAndPassword.mockResolvedValue({user: {uid: 'admin123',emailVerified:true},});
+  mockGetDoc.mockResolvedValue({exists:()=>true,data:()=>({role: 'admin'}),});
+
+  renderWithRouter(<Login />);
+  fireEvent.change(screen.getByPlaceholderText(/email/i), {target: {value:'correct@admin.com'},});
+  fireEvent.change(screen.getByPlaceholderText(/password/i), {target: {value:'12345'},});
+  fireEvent.click(screen.getByRole('button', { name: /log in/i }));
+  await waitFor(() => {
+    expect(mockNavigate).toHaveBeenCalledWith('/admin');
+  });
+});
+
 //Invalid details
 test('Given a user is on login page, when they enter invalid details, then an error message should display',async ()=>{
     mockSignInWithEmailAndPassword.mockRejectedValue(new Error('Auth failed'));
