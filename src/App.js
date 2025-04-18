@@ -8,6 +8,8 @@ import Home from './pages/Home/Home.js';
 import SellerPage from './pages/SellerPage/SellerPage.js';
 import Admin from './pages/Admin/Admin.js';
 import Layout from './components/Layout.js';
+import ProductDetail from './pages/Home/ProductDetail.js';
+
 
 
 const App = () => {
@@ -23,6 +25,8 @@ const App = () => {
         {/* <Route path="/sellerpage" element={<h1>Seller Dashboard (Coming Soon)</h1>} /> */}
         <Route path = "/home" element={<Home />} />
         <Route path = "/sellerpage" element = {<SellerPage />} />
+        <Route path="/product/:productId" element={<ProductDetail />} />
+
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
       </Layout>
