@@ -106,7 +106,7 @@ const Login = () => {
         if (userDoc.exists()) {
           const role = userDoc.data().role;
           if (role === 'buyer') {
-            navigate('/buyer-dashboard');
+            navigate('/home');
           } else if (role === 'seller') {
             navigate('/sellerpage');
           }

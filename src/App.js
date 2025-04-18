@@ -43,14 +43,15 @@ const App = () => {
               </ProtectedRoute>
             }
           />
-          <Route
+
+          {/* <Route
             path="/seller-dashboard"
             element={
               <ProtectedRoute allowedRoles={['seller', 'admin']}>
                 <h1>Seller Dashboard (Coming Soon)</h1>
               </ProtectedRoute>
             }
-          />
+          /> */}
 
           <Route path="*" element={<NotFoundPage />} />
         </Routes>
