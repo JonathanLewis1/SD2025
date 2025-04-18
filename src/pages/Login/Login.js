@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from 'firebase/auth';
+import React, { useState, useEffect } from 'react';
+import { signInWithEmailAndPassword, sendPasswordResetEmail, signOut, sendEmailVerification,setPersistence, browserSessionPersistence, onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
@@ -8,6 +8,7 @@ import '../../App.css';
 
 const Login = () => {
   const [email, setEmail] = useState('');
+  const [showResendLink, setShowResendLink] = useState(false);
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [resetMessage, setResetMessage] = useState('');
@@ -28,14 +29,17 @@ const Login = () => {
     }
   
     try {
+      await setPersistence(auth, browserSessionPersistence);
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
   
       if (!user.emailVerified) {
         setError('Please verify your email before logging in.');
-        await signOut(auth); // Prevent access
+        setShowResendLink(true);
+        await signOut(auth);
         return;
       }
+      
   
       // Get user role from Firestore
       const userDoc = await getDoc(doc(db, 'users', user.uid));
@@ -76,6 +80,40 @@ const Login = () => {
     }
   };
 
+  const handleResendVerification = async () => {
+    try {
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      const user = userCredential.user;
+  
+      if (!user.emailVerified) {
+        await sendEmailVerification(user);
+        setError('');
+        setResetMessage('Verification email resent! Check your inbox.');
+      }
+  
+      await signOut(auth); // Stay signed out until verified
+    } catch (err) {
+      setError('Could not resend verification email. Please check your credentials.');
+    }
+  };
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      if (user && user.emailVerified) {
+        const userDoc = await getDoc(doc(db, 'users', user.uid));
+        if (userDoc.exists()) {
+          const role = userDoc.data().role;
+          if (role === 'buyer') {
+            navigate('/buyer-dashboard');
+          } else if (role === 'seller') {
+            navigate('/sellerpage');
+          }
+        }
+      }
+    });
+  
+    return () => unsubscribe();
+  }, [navigate]);
+
   return (
     <div style={styles.wrapper}>
       <div style={styles.container}>
@@ -83,6 +121,12 @@ const Login = () => {
         <h2 style={styles.subtitle}>Login</h2>
         {error && <p style={styles.error}>{error}</p>}
         {resetMessage && <p style={styles.success}>{resetMessage}</p>}
+        {showResendLink && (
+  <button onClick={handleResendVerification} style={styles.resendButton}>
+    Resend Verification Email
+  </button>
+)}
+
 
         <form onSubmit={handleSubmit} noValidate style={styles.form}>
           <input
@@ -200,6 +244,17 @@ const styles = {
     textDecoration: 'none',
     fontWeight: '500',
   },
+  resendButton: {
+    backgroundColor: '#f97316',
+    color: '#ffffff',
+    padding: '10px 14px',
+    border: 'none',
+    borderRadius: 8,
+    fontSize: 14,
+    cursor: 'pointer',
+    marginTop: 12,
+  },
+  
 };
 
 export default Login;
