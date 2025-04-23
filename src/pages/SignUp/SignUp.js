@@ -3,7 +3,8 @@ import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/
 import { auth } from '../../firebase';
 import { useNavigate } from 'react-router-dom';
 import '../../App.css';
-import { collection, doc, setDoc } from "firebase/firestore";
+// import { collection, doc, setDoc } from "firebase/firestore";
+import { doc, setDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 
 
