@@ -12,13 +12,13 @@ import {
 import { onAuthStateChanged } from 'firebase/auth';
 
 const SellerPage = () => {
-
   const [products, setProducts] = useState([]);
   const [form, setForm] = useState({
     name: '',
     price: '',
     description: '',
-    imageUrl: ''
+    imageUrl: '',
+    category: ''
   });
   const [error, setError] = useState('');
   const [userEmail, setUserEmail] = useState(null);
@@ -60,9 +60,12 @@ const SellerPage = () => {
       setError('Description is required');
       return;
     }
-
     if (!form.imageUrl) {
       setError('Image URL is required');
+      return;
+    }
+    if (!form.category) {
+      setError('Category is required');
       return;
     }
 
@@ -72,11 +75,12 @@ const SellerPage = () => {
         price: parseFloat(form.price),
         description: form.description,
         image: form.imageUrl,
+        category: form.category,
         email: userEmail,
         dateAdded: new Date().toISOString()
       });
 
-      setForm({ name: '', price: '', description: '', imageUrl: '' });
+      setForm({ name: '', price: '', description: '', imageUrl: '', category: '' });
       setError('');
       fetchProducts(userEmail);
     } catch (error) {
@@ -124,6 +128,17 @@ const SellerPage = () => {
           onChange={e => setForm({ ...form, imageUrl: e.target.value })}
           required
         />
+        <select
+          value={form.category}
+          onChange={(e) => setForm({ ...form, category: e.target.value })}
+          required
+        >
+          <option value="">Select a Category</option>
+          <option value="Jewelry">Jewelry</option>
+          <option value="Clothing">Clothing</option>
+          <option value="Home Decor">Home Decor</option>
+          <option value="Woodwork">Woodwork</option>
+        </select>
         <button type="submit">Add Product</button>
       </form>
       {error && <p style={{ color: 'red' }}>{error}</p>}
@@ -135,6 +150,7 @@ const SellerPage = () => {
             <h3>{prod.name}</h3>
             <p>Price: R{prod.price}</p>
             <p>{prod.description}</p>
+            <p>Category: {prod.category}</p>
             <button onClick={() => deleteProduct(prod.id)}>Delete</button>
           </div>
         ))}
