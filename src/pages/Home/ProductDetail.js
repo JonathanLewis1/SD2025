@@ -17,10 +17,12 @@ const ProductDetail = () => {
 
         setTimeout(() => {
         const stockEl = document.getElementById("stock");
+        const btn = document.getElementById("cart");
         if (!stockEl) return;
 
         if (data.stock === 0) {
           stockEl.innerText = "This product is out of stock.";
+          btn.hidden = true;
         } else if (data.stock <= 5) {
           stockEl.innerText = "There are less than 5 of this product in stock.";
         } else {
@@ -34,6 +36,10 @@ const ProductDetail = () => {
     fetchProduct();
   }, [productId]);
 
+  const addToCart = async () => {
+    //do something here to add to cart
+  };
+
   if (!product) return <p style={styles.loading}>Loading product details...</p>;
 
   return (
@@ -45,6 +51,7 @@ const ProductDetail = () => {
           <p style={styles.price}>R{product.price}</p>
           <p style={styles.description}>{product.description}</p>
           <p id="stock" style={styles.stock}></p>
+          <button id="cart" onClick={addToCart} style={styles.button}>Add to Cart</button>
         </div>
       </div>
     </div>
@@ -110,7 +117,18 @@ const styles = {
     fontSize: 16,
     lineHeight: 1.6,
     color: '#ff0000',
-  }
+  },
+  button: {
+    backgroundColor: '#3b82f6',
+    color: '#ffffff',
+    padding: '12px 16px',
+    border: 'none',
+    borderRadius: 12,
+    fontWeight: 500,
+    fontSize: 16,
+    cursor: 'pointer',
+    marginTop: 8,
+  },
 };
 
 export default ProductDetail;
