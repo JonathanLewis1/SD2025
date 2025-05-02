@@ -10,6 +10,7 @@ import Home from './pages/Home/Home.js';
 import SellerPage from './pages/SellerPage/SellerPage.js';
 import Admin from './pages/Admin/Admin.js';
 import Layout from './components/Layout.js';
+import About from './pages/About/About.js';
 import ProductDetail from './pages/Home/ProductDetail.js';
 import ProtectedRoute from './components/ProtectedRoute'; // if you're using role-based routing
 
@@ -22,6 +23,7 @@ const App = () => {
           <Route path="/login" element={<Login />} />
           <Route path="/signup" element={<SignUp />} />
           <Route path="/admin" element={<Admin />} />
+          <Route path = '/about' element={<About />} />
 
           {/* Public product detail page */}
           <Route path="/product/:productId" element={<ProductDetail />} />

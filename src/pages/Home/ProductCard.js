@@ -28,6 +28,9 @@ const styles = {
     objectFit: 'cover',
     borderRadius: 8,
   },
+  stock: {
+    color: '#ff0000',
+  },
 };
 
 export default ProductCard;

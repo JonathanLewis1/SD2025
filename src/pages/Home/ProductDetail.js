@@ -12,10 +12,25 @@ const ProductDetail = () => {
       const docRef = doc(db, 'products', productId);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
-        setProduct(docSnap.data());
-      }
-    };
+        const data = docSnap.data();
+        setProduct(data);
 
+        setTimeout(() => {
+        const stockEl = document.getElementById("stock");
+        if (!stockEl) return;
+
+        if (data.stock === 0) {
+          stockEl.innerText = "This product is out of stock.";
+        } else if (data.stock <= 5) {
+          stockEl.innerText = "There are less than 5 of this product in stock.";
+        } else {
+          stockEl.innerText = "";
+        }
+      }, 0);
+      }
+      
+    };
+    
     fetchProduct();
   }, [productId]);
 
@@ -29,6 +44,7 @@ const ProductDetail = () => {
           <h1 style={styles.title}>{product.name}</h1>
           <p style={styles.price}>R{product.price}</p>
           <p style={styles.description}>{product.description}</p>
+          <p id="stock" style={styles.stock}></p>
         </div>
       </div>
     </div>
@@ -90,6 +106,11 @@ const styles = {
     fontSize: 18,
     color: '#555',
   },
+  stock: {
+    fontSize: 16,
+    lineHeight: 1.6,
+    color: '#ff0000',
+  }
 };
 
 export default ProductDetail;

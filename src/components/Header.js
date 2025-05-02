@@ -6,8 +6,13 @@ import {
   TouchableOpacity,
   StyleSheet,
 } from 'react-native';
+import {
+  getDoc,
+  doc
+} from 'firebase/firestore';
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
+import { db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
 
 
@@ -22,6 +27,27 @@ export default function Header() {
     }
   };
 
+  const goHome = async () => {
+      navigate('/home');
+  };
+
+  const viewProducts = async () => {
+    const user = auth.currentUser;
+    const userDoc = await getDoc(doc(db, 'users', user.uid));
+  
+      const role = userDoc.data().role;
+
+      if (role === 'seller') {
+        navigate('/sellerpage')
+      } else if (role === 'buyer') {
+        alert("Only registered sellers may add products");
+      }
+  };
+
+  const aboutUs = async () => {
+    navigate('/about')
+  };
+
   return (
     <View style={styles.container}>
       {/* Top Row: Logo, Nav, Cart/Logout */}
@@ -29,14 +55,14 @@ export default function Header() {
       <img src="/craftnest_icon_192x192.png" alt="Logo" style={styles.logoImage} />
 
         <View style={styles.navButtons}>
-          <TouchableOpacity style={styles.navButton}>
+          <TouchableOpacity onPress={goHome} style={styles.navButton}>
             <Text>Home</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navButton}>
-            <Text>Products</Text>
+          <TouchableOpacity onPress={viewProducts} style={styles.navButton}>
+            <Text>My Products</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.navButton}>
-            <Text>About</Text>
+          <TouchableOpacity onPress={aboutUs} style={styles.navButton}>
+            <Text>About Us</Text>
           </TouchableOpacity>
           <TouchableOpacity style={styles.navButton}>
             <Text>Contact</Text>
@@ -54,7 +80,7 @@ export default function Header() {
       </View>
 
       {/* Search Bar */}
-      <View style={styles.searchBar}>
+     <View style={styles.searchBar}>
         <Text style={styles.searchIcon}>🔍</Text>
         <TextInput
           placeholder="Search...\"
