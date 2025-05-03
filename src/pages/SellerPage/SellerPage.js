@@ -36,7 +36,7 @@ const SellerPage = () => {
     } catch (err) {
       console.error('❌ Error fetching products:', err);
     }
-  };
+  },[]);
 
   const handleUpload = async (e) => {
     e.preventDefault();
