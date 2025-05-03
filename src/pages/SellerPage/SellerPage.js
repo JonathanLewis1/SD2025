@@ -1,116 +1,85 @@
 import React, { useState, useEffect } from 'react';
-import { db, auth } from '../../firebase';
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  addDoc,
-  deleteDoc,
-  doc,
-  updateDoc
-} from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
 
 const SellerPage = () => {
-  const [stockEdits, setStockEdits] = useState({});
   const [products, setProducts] = useState([]);
   const [form, setForm] = useState({
     name: '',
     price: '',
     description: '',
-    imageUrl: '',
-    category: ''
+    image: '',
+    category: '',
+    stock: 1
   });
   const [error, setError] = useState('');
-  const [userEmail, setUserEmail] = useState(null);
+  const [stockEdits, setStockEdits] = useState({});
+  const [userEmail, setUserEmail] = useState('');
+
+  const API = process.env.REACT_APP_API_URL;
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && user.email) {
-        setUserEmail(user.email);
-        fetchProducts(user.email);
-      }
-    });
-
-    return () => unsubscribe();
+    const storedUser = JSON.parse(localStorage.getItem('user'));
+    console.log("🔒 Stored user from localStorage:", storedUser);
+    if (storedUser?.email) {
+      setUserEmail(storedUser.email);
+      fetchProducts(storedUser.email);
+    }
   }, []);
 
   const fetchProducts = async (email) => {
-    const q = query(collection(db, 'products'), where('email', '==', email));
-    const snapshot = await getDocs(q);
-    const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-    setProducts(items);
+    console.log("📨 Fetching products for:", email);
+    try {
+      const res = await fetch(`${API}/api/seller/products?email=${email}`);
+      console.log("🌐 Response status:", res.status);
+      const data = await res.json();
+      console.log("📦 Products received:", data);
+      setProducts(data);
+    } catch (err) {
+      console.error('❌ Error fetching products:', err);
+    }
   };
 
   const handleUpload = async (e) => {
     e.preventDefault();
-
-    if (!userEmail) {
-      setError('You must be logged in to add a product.');
-      return;
-    }
-    if (!form.name) {
-      setError('Name is required');
-      return;
-    }
-    if (!form.price) {
-      setError('Price is required');
-      return;
-    }
-    if (!form.description) {
-      setError('Description is required');
-      return;
-    }
-    if (!form.imageUrl) {
-      setError('Image URL is required');
-      return;
-    }
-    if (!form.category) {
-      setError('Category is required');
+    if (!form.name || !form.price || !form.description || !form.image || !form.category) {
+      setError('All fields are required');
       return;
     }
 
     try {
-      await addDoc(collection(db, 'products'), {
-        name: form.name,
-        price: parseFloat(form.price),
-        description: form.description,
-        image: form.imageUrl,
-        category: form.category,
-        email: userEmail,
-        dateAdded: new Date().toISOString(),
-        stock: 1
+      const res = await fetch(`${API}/api/seller/products`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, email: userEmail })
       });
-
-      setForm({ name: '', price: '', description: '', imageUrl: '', category: '' });
-      setError('');
+      const result = await res.json();
+      console.log("🆕 Upload result:", result);
+      if (!res.ok) throw new Error('Failed to upload');
+      setForm({ name: '', price: '', description: '', image: '', category: '', stock: 1 });
       fetchProducts(userEmail);
-    } catch (error) {
-      console.error("Error adding product:", error.message);
-      alert("Failed to add product: " + error.message);
+    } catch (err) {
+      setError('Upload failed');
     }
   };
 
   const updateStock = async (productId, newStock) => {
     try {
-      const productRef = doc(db, 'products', productId);
-      await updateDoc(productRef, {
-        stock: parseInt(newStock),
+      await fetch(`${API}/api/seller/products/${productId}/stock`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ stock: parseInt(newStock) })
       });
-      if (userEmail) fetchProducts(userEmail);
-    } catch (error) {
-      console.error('Error updating stock:', error);
+      fetchProducts(userEmail);
+    } catch (err) {
+      console.error('Stock update failed', err);
     }
   };
-  
 
   const deleteProduct = async (productId) => {
     try {
-      await deleteDoc(doc(db, 'products', productId));
-      if (userEmail) fetchProducts(userEmail);
-    } catch (error) {
-      console.error("Error deleting product:", error);
+      await fetch(`${API}/api/seller/products/${productId}`, { method: 'DELETE' });
+      fetchProducts(userEmail);
+    } catch (err) {
+      console.error('Delete failed', err);
     }
   };
 
@@ -140,14 +109,24 @@ const SellerPage = () => {
           required
           style={styles.input}
         />
-        <input
+        {/* <input
           type="text"
           placeholder="Image URL"
           value={form.imageUrl}
           onChange={e => setForm({ ...form, imageUrl: e.target.value })}
           required
           style={styles.input}
-        />
+        /> */}
+
+<input
+  type="text"
+  placeholder="Image URL"
+  value={form.image}
+  onChange={e => setForm({ ...form, image: e.target.value })}
+  required
+  style={styles.input}
+/>
+
         <select
           value={form.category}
           onChange={(e) => setForm({ ...form, category: e.target.value })}

@@ -7,34 +7,64 @@ const ProductDetail = () => {
   const { productId } = useParams();
   const [product, setProduct] = useState(null);
 
+  // useEffect(() => {
+  //   const fetchProduct = async () => {
+  //     const docRef = doc(db, 'products', productId);
+  //     const docSnap = await getDoc(docRef);
+  //     if (docSnap.exists()) {
+  //       const data = docSnap.data();
+  //       setProduct(data);
+
+  //       setTimeout(() => {
+  //       const stockEl = document.getElementById("stock");
+  //       const btn = document.getElementById("cart");
+  //       if (!stockEl) return;
+
+  //       if (data.stock === 0) {
+  //         stockEl.innerText = "This product is out of stock.";
+  //         btn.hidden = true;
+  //       } else if (data.stock <= 5) {
+  //         stockEl.innerText = "There are less than 5 of this product in stock.";
+  //       } else {
+  //         stockEl.innerText = "";
+  //       }
+  //     }, 0);
+  //     }
+      
+  //   };
+    
+  //   fetchProduct();
+  // }, [productId]);
   useEffect(() => {
     const fetchProduct = async () => {
-      const docRef = doc(db, 'products', productId);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
+      try {
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/home/products/${productId}`);
+        const data = await res.json();
         setProduct(data);
-
+  
         setTimeout(() => {
-        const stockEl = document.getElementById("stock");
-        const btn = document.getElementById("cart");
-        if (!stockEl) return;
-
-        if (data.stock === 0) {
-          stockEl.innerText = "This product is out of stock.";
-          btn.hidden = true;
-        } else if (data.stock <= 5) {
-          stockEl.innerText = "There are less than 5 of this product in stock.";
-        } else {
-          stockEl.innerText = "";
-        }
-      }, 0);
+          const stockEl = document.getElementById("stock");
+          const btn = document.getElementById("cart");
+          if (!stockEl) return;
+  
+          if (data.stock === 0) {
+            stockEl.innerText = "This product is out of stock.";
+            btn.hidden = true;
+          } else if (data.stock <= 5) {
+            stockEl.innerText = "There are less than 5 of this product in stock.";
+          } else {
+            stockEl.innerText = "";
+          }
+        }, 0);
+  
+      } catch (err) {
+        console.error("Failed to load product details:", err);
       }
-      
     };
-    
+  
     fetchProduct();
   }, [productId]);
+  
 
   const addToCart = async () => {
     //do something here to add to cart

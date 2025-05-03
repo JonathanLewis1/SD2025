@@ -10,26 +10,53 @@ const Home = () => {
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
 
+  // useEffect(() => {
+  //   const fetchProducts = async () => {
+  //     const querySnapshot = await getDocs(collection(db, 'products'));
+  //     const data = querySnapshot.docs.map(doc => ({
+  //       id: doc.id,
+  //       ...doc.data()
+  //     }));
+  //     setProducts(data);
+  //   };
+
+  //   fetchProducts();
+  // }, []);
+
+  // const filteredProducts = products.filter(product => {
+  //   const matchesSearch = product.name?.toLowerCase().trim().includes(searchTerm.toLowerCase().trim());
+  //   const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
+  //   const matchesMin = minPrice === '' || product.price >= parseFloat(minPrice);
+  //   const matchesMax = maxPrice === '' || product.price <= parseFloat(maxPrice);
+  //   return matchesSearch && matchesCategory && matchesMin && matchesMax;
+  // });
+
+  // const handleReset = () => {
+  //   setSearchTerm('');
+  //   setSelectedCategory('All');
+  //   setMinPrice('');
+  //   setMaxPrice('');
+  // };
   useEffect(() => {
     const fetchProducts = async () => {
-      const querySnapshot = await getDocs(collection(db, 'products'));
-      const data = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setProducts(data);
+      try {
+        const queryParams = new URLSearchParams({
+          search: searchTerm,
+          category: selectedCategory !== 'All' ? selectedCategory : '',
+          minPrice,
+          maxPrice,
+        });
+
+        const res = await fetch(`${process.env.REACT_APP_API_URL}/api/home/products?${queryParams}`);
+        const data = await res.json();
+        setProducts(data);
+      } catch (err) {
+        console.error('Failed to fetch products', err);
+      }
     };
 
     fetchProducts();
-  }, []);
-
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name?.toLowerCase().trim().includes(searchTerm.toLowerCase().trim());
-    const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
-    const matchesMin = minPrice === '' || product.price >= parseFloat(minPrice);
-    const matchesMax = maxPrice === '' || product.price <= parseFloat(maxPrice);
-    return matchesSearch && matchesCategory && matchesMin && matchesMax;
-  });
+  }, [searchTerm, selectedCategory, minPrice, maxPrice]);
 
   const handleReset = () => {
     setSearchTerm('');
@@ -88,13 +115,22 @@ const Home = () => {
       </div>
 
       <div style={styles.productGrid}>
-        {filteredProducts.length > 0 ? (
+        {/* {filteredProducts.length > 0 ? (
           filteredProducts.map(product => (
             <ProductCard key={product.id} product={product} />
           ))
         ) : (
           <p>No products found.</p>
+        )} */}
+        {products.length > 0 ? (
+        products.map(product => (
+          <ProductCard key={product.id} product={product} />
+          ))
+        ) : (
+        <p>No products found.</p>
         )}
+
+
       </div>
     </div>
   );

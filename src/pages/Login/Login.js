@@ -276,56 +276,44 @@ const Login = () => {
   const [resetMessage, setResetMessage] = useState('');
   const navigate = useNavigate();
 
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setResetMessage('');
   
-    if (!email) {
-      setError('Email is required');
-      return;
-    }
-    if (!password) {
-      setError('Password is required');
+    if (!email || !password) {
+      setError('Email and password are required');
       return;
     }
   
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password })
+      });
   
-      if (!user.emailVerified) {
-        setError('Please verify your email before logging in.');
-        await signOut(auth); // Prevent access
+      const data = await res.json();
+  
+      if (!res.ok) {
+        setError(data.message || "Login failed");
         return;
       }
   
-      // Get user role from Firestore
-      const userDoc = await getDoc(doc(db, 'users', user.uid));
-      if (!userDoc.exists()) {
-        setError('User data not found.');
-        return;
-      }
-  
-      const role = userDoc.data().role;
-  
-      // Redirect based on role
-      if (role === 'buyer') {
-        navigate('/home');
-      } else if (role === 'seller') {
-        navigate('/sellerpage');
-       } else if (role === 'admin') {
-          navigate('/admin');
-        } 
-      else {
-        setError('User role not recognized.');
-      }
+      console.log("✅ Logged in via backend:", data);
+      localStorage.setItem("user", JSON.stringify(data)); 
+      // Optional: redirect based on role
+      if (data.role === "buyer") navigate("/home");
+      else if (data.role === "seller") navigate("/sellerpage");
+      else if (data.role === "admin") navigate("/admin");
+      else setError("Unrecognized role");
   
     } catch (err) {
-      console.error(err);
-      setError('Invalid email or password');
+      setError("Something went wrong logging in");
     }
   };
+  
   
 
   const handleForgotPassword = async () => {

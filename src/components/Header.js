@@ -1,51 +1,94 @@
+// import React from 'react';
+// import {
+//   View,
+//   Text,
+//   TextInput,
+//   TouchableOpacity,
+//   StyleSheet,
+// } from 'react-native';
+// import {
+//   getDoc,
+//   doc
+// } from 'firebase/firestore';
+// import { signOut } from 'firebase/auth';
+// import { auth } from '../firebase';
+// import { db } from '../firebase';
+// import { useNavigate } from 'react-router-dom';
+
+
+// export default function Header() {
+//   const navigate = useNavigate();
+//   const handleLogout = async () => {
+//     try {
+//       await signOut(auth);
+//       navigate('/login');
+//     } catch (error) {
+//       console.error("Error logging out:", error);
+//     }
+//   };
+
+//   const goHome = async () => {
+//       navigate('/home');
+//   };
+
+//   const viewProducts = async () => {
+//     const user = auth.currentUser;
+//     const userDoc = await getDoc(doc(db, 'users', user.uid));
+  
+//       const role = userDoc.data().role;
+
+//       if (role === 'seller') {
+//         navigate('/sellerpage')
+//       } else if (role === 'buyer') {
+//         alert("Only registered sellers may add products");
+//       }
+//   };
+
+//   const aboutUs = async () => {
+//     navigate('/about')
+//   };
+
 import React from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
 } from 'react-native';
-import {
-  getDoc,
-  doc
-} from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
-import { auth } from '../firebase';
-import { db } from '../firebase';
 import { useNavigate } from 'react-router-dom';
 
-
-export default function Header() {
+const Header = () => {
   const navigate = useNavigate();
+  const user = JSON.parse(localStorage.getItem("user"));
+
   const handleLogout = async () => {
     try {
-      await signOut(auth);
-      navigate('/login');
-    } catch (error) {
-      console.error("Error logging out:", error);
+      await fetch(`${process.env.REACT_APP_API_URL}/api/header/logout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      localStorage.removeItem("user");
+      navigate("/login");
+    } catch (err) {
+      console.error("Error logging out:", err);
     }
   };
 
-  const goHome = async () => {
-      navigate('/home');
+  const goHome = () => {
+    navigate('/home');
+  };
+
+  const aboutUs = () => {
+    navigate('/about');
   };
 
   const viewProducts = async () => {
-    const user = auth.currentUser;
-    const userDoc = await getDoc(doc(db, 'users', user.uid));
-  
-      const role = userDoc.data().role;
+    try {
+      const res = await fetch(`${process.env.REACT_APP_API_URL}/api/header/role?uid=${user.uid}`);
+      const data = await res.json();
 
-      if (role === 'seller') {
-        navigate('/sellerpage')
-      } else if (role === 'buyer') {
-        alert("Only registered sellers may add products");
-      }
-  };
-
-  const aboutUs = async () => {
-    navigate('/about')
+      if (data.role === "seller") navigate("/sellerpage");
+      else if (data.role === "buyer") alert("Only registered sellers may add products");
+    } catch (err) {
+      console.error("Error checking role:", err);
+    }
   };
 
   return (
@@ -155,4 +198,5 @@ const styles = StyleSheet.create({
     objectFit: 'contain',
   },
 });
+export default Header;
 
