@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { db, auth } from '../../firebase';
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  addDoc,
-  deleteDoc,
-  doc,
-  updateDoc
-} from 'firebase/firestore';
-import { onAuthStateChanged } from 'firebase/auth';
+// import { db, auth } from '../../firebase';
+// import {
+//   collection,
+//   query,
+//   where,
+//   getDocs,
+//   addDoc,
+//   deleteDoc,
+//   doc,
+//   updateDoc
+// } from 'firebase/firestore';
+// import { onAuthStateChanged } from 'firebase/auth';
 
 const SellerPage = () => {
   

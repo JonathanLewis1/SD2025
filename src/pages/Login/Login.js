@@ -262,10 +262,10 @@
 
 // // export default Login;
 import React, { useState } from 'react';
-import { signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from 'firebase/auth';
+import {sendPasswordResetEmail} from 'firebase/auth';
 import { auth } from '../../firebase';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
+// import { doc, getDoc } from 'firebase/firestore';
+// import { db } from '../../firebase';
 import { useNavigate, Link } from 'react-router-dom';
 import '../../App.css';
 
