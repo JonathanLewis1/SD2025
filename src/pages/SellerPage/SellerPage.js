@@ -16,14 +16,7 @@ const SellerPage = () => {
 
   const API = process.env.REACT_APP_API_URL;
 
-  useEffect(() => {
-    const storedUser = JSON.parse(localStorage.getItem('user'));
-    console.log("🔒 Stored user from localStorage:", storedUser);
-    if (storedUser?.email) {
-      setUserEmail(storedUser.email);
-      fetchProducts(storedUser.email);
-    }
-  }, []);
+  
 
   const fetchProducts = React.useCallback(async (email) => {
     console.log("📨 Fetching products for:", email);
@@ -36,8 +29,17 @@ const SellerPage = () => {
     } catch (err) {
       console.error('❌ Error fetching products:', err);
     }
-  },[]);
+  },[API]);
 
+  
+  useEffect(() => {
+      const storedUser = JSON.parse(localStorage.getItem('user'));
+      console.log("🔒 Stored user from localStorage:", storedUser);
+      if (storedUser?.email) {
+        setUserEmail(storedUser.email);
+        fetchProducts(storedUser.email);
+      }
+    }, [fetchProducts]);
   const handleUpload = async (e) => {
     e.preventDefault();
     if (!form.name || !form.price || !form.description || !form.image || !form.category) {
