@@ -25,7 +25,7 @@ const SellerPage = () => {
     }
   }, []);
 
-  const fetchProducts = async (email) => {
+  const fetchProducts = React.useCallback(async (email) => {
     console.log("📨 Fetching products for:", email);
     try {
       const res = await fetch(`${API}/api/seller/products?email=${email}`);
