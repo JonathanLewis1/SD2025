@@ -1,23 +1,15 @@
-import React from 'react';
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-} from 'react-native';
-import {
-  getDoc,
-  doc
-} from 'firebase/firestore';
-import { signOut } from 'firebase/auth';
-import { auth } from '../firebase';
-import { db } from '../firebase';
-import { useNavigate } from 'react-router-dom';
 
+
+// src/components/Header.js
+import React from 'react';
+import { Link, useNavigate } from 'react-router-dom';
+import { signOut } from 'firebase/auth';
+import { auth, db } from '../firebase';
+import { getDoc, doc } from 'firebase/firestore';
 
 export default function Header() {
   const navigate = useNavigate();
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -27,132 +19,105 @@ export default function Header() {
     }
   };
 
-  const goHome = async () => {
-      navigate('/home');
-  };
-
   const viewProducts = async () => {
     const user = auth.currentUser;
     const userDoc = await getDoc(doc(db, 'users', user.uid));
-  
-      const role = userDoc.data().role;
+    const role = userDoc.data().role;
 
-      if (role === 'seller') {
-        navigate('/sellerpage')
-      } else if (role === 'buyer') {
-        alert("Only registered sellers may add products");
-      }
-  };
-
-  const aboutUs = async () => {
-    navigate('/about')
+    if (role === 'seller') {
+      navigate('/sellerpage');
+    } else {
+      alert("Only registered sellers may add products");
+    }
   };
 
   return (
-    <View style={styles.container}>
-      {/* Top Row: Logo, Nav, Cart/Logout */}
-      <View style={styles.topRow}>
-      <img src="/craftnest_icon_192x192.png" alt="Logo" style={styles.logoImage} />
+    <div style={styles.container}>
+      <div style={styles.topRow}>
+        <img src="/craftnest_icon_192x192.png" alt="Logo" style={styles.logoImage} />
 
-        <View style={styles.navButtons}>
-          <TouchableOpacity onPress={goHome} style={styles.navButton}>
-            <Text>Home</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={viewProducts} style={styles.navButton}>
-            <Text>My Products</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={aboutUs} style={styles.navButton}>
-            <Text>About Us</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.navButton}>
-            <Text>Contact</Text>
-          </TouchableOpacity>
-        </View>
+        <div style={styles.navButtons}>
+          <Link to="/home" style={styles.navButton}>Home</Link>
+          <button onClick={viewProducts} style={styles.navButton}>My Products</button>
+          <Link to="/about" style={styles.navButton}>About Us</Link>
+          <Link to="/contact-admin" style={styles.navButton}>Contact</Link>
+        </div>
 
-        <View style={styles.actions}>
-          <TouchableOpacity style={styles.actionButton}>
-            <Text>Cart 🛒</Text>
-          </TouchableOpacity>
-          <TouchableOpacity onPress={handleLogout} style={styles.actionButton}>
-            <Text>Logout 🚪</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+        <div style={styles.actions}>
+          <button style={styles.actionButton}>Cart 🛒</button>
+          <button onClick={handleLogout} style={styles.actionButton}>Logout 🚪</button>
+        </div>
+      </div>
 
-      {/* Search Bar */}
-     <View style={styles.searchBar}>
-        <Text style={styles.searchIcon}>🔍</Text>
-        <TextInput
-          placeholder="Search...\"
-          style={styles.searchInput}
-        />
-      </View>
-    </View>
+      <div style={styles.searchBar}>
+        <span style={styles.searchIcon}>🔍</span>
+        <input type="text" placeholder="Search..." style={styles.searchInput} />
+      </div>
+    </div>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = {
   container: {
     width: '100%',
-    padding: 16,
+    padding: '16px',
     backgroundColor: '#ffffff',
-    elevation: 4,
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
   },
   topRow: {
-    flexDirection: 'row',
+    display: 'flex',
     flexWrap: 'wrap',
     alignItems: 'center',
     justifyContent: 'space-between',
-  },
-  logo: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    marginBottom: 8,
-  },
-  navButtons: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  navButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: '#dbeafe',
-    borderRadius: 6,
-    marginHorizontal: 4,
-    marginVertical: 2,
-  },
-  actions: {
-    flexDirection: 'row',
-    gap: 10,
-  },
-  actionButton: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: '#e5e7eb',
-    borderRadius: 6,
-    marginHorizontal: 4,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderColor: '#d1d5db',
-    borderWidth: 1,
-    borderRadius: 6,
-    marginTop: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: 14,
   },
   logoImage: {
     height: 40,
     objectFit: 'contain',
   },
-});
+  navButtons: {
+    display: 'flex',
+    gap: '8px',
+    flexWrap: 'wrap',
+  },
+  navButton: {
+    padding: '6px 12px',
+    backgroundColor: '#dbeafe',
+    borderRadius: '6px',
+    textDecoration: 'none',
+    color: '#000',
+    fontSize: '14px',
+    border: 'none',
+    cursor: 'pointer',
+  },
+  actions: {
+    display: 'flex',
+    gap: '10px',
+  },
+  actionButton: {
+    padding: '6px 12px',
+    backgroundColor: '#e5e7eb',
+    borderRadius: '6px',
+    border: 'none',
+    fontSize: '14px',
+    cursor: 'pointer',
+  },
+  searchBar: {
+    display: 'flex',
+    alignItems: 'center',
+    border: '1px solid #d1d5db',
+    borderRadius: '6px',
+    marginTop: '12px',
+    padding: '8px 12px',
+  },
+  searchIcon: {
+    marginRight: '8px',
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: '14px',
+    border: 'none',
+    outline: 'none',
+  },
+};
+
 

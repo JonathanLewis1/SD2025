@@ -1,82 +1,70 @@
+
 // src/components/Footer.js
 import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Linking } from 'react-native';
+import { Link } from 'react-router-dom';
 
 export default function Footer() {
+  const year = new Date().getFullYear();
+
   return (
-    <View style={styles.footer}>
-      <View style={styles.linksRow}>
-        <TouchableOpacity onPress={() => Linking.openURL('#')}>
-          <Text style={styles.link}>About</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => Linking.openURL('#')}>
-          <Text style={styles.link}>Privacy Policy</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => Linking.openURL('#')}>
-          <Text style={styles.link}>Terms</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => Linking.openURL('#')}>
-          <Text style={styles.link}>Contact</Text>
-        </TouchableOpacity>
-      </View>
+    <div style={styles.footer}>
+      <div style={styles.linksRow}>
+        <Link to="/about" style={styles.link}>About</Link>
+        <Link to="/privacy-policy" style={styles.link}>Privacy Policy</Link>
+        <Link to="#" style={styles.link}>Terms</Link>
+        <Link to="/contact-admin" style={styles.link}>Contact</Link>
+      </div>
 
-      <View style={styles.socialRow}>
-        <TouchableOpacity onPress={() => Linking.openURL('#')}>
-          <Text style={styles.social}>🐦</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => Linking.openURL('#')}>
-          <Text style={styles.social}>📘</Text>
-        </TouchableOpacity>
-        <TouchableOpacity onPress={() => Linking.openURL('#')}>
-          <Text style={styles.social}>📸</Text>
-        </TouchableOpacity>
-      </View>
+      <div style={styles.socialRow}>
+        <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" style={styles.social}>🐦</a>
+        <a href="https://facebook.com" target="_blank" rel="noopener noreferrer" style={styles.social}>📘</a>
+        <a href="https://instagram.com" target="_blank" rel="noopener noreferrer" style={styles.social}>📸</a>
+      </div>
 
-      <Text style={styles.brand}>Craft Nest</Text>
-      <Text style={styles.copy}>© {new Date().getFullYear()} Craft Nest. All rights reserved.</Text>
-    </View>
+      <p style={styles.brand}>Craft Nest</p>
+      <p style={styles.copy}>© {year} Craft Nest. All rights reserved.</p>
+    </div>
   );
 }
 
-const styles = StyleSheet.create({
+const styles = {
   footer: {
     width: '100%',
-    paddingVertical: 24,
-    paddingHorizontal: 16,
-    backgroundColor: '#000000',
-    alignItems: 'center',
+    padding: '24px 16px',
+    backgroundColor: '#000',
+    color: '#fff',
+    textAlign: 'center',
     marginTop: 'auto',
   },
   linksRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    display: 'flex',
     justifyContent: 'center',
-    marginBottom: 12,
-    gap: 12,
+    gap: '20px',
+    marginBottom: '12px',
+    flexWrap: 'wrap',
   },
   link: {
-    marginHorizontal: 8,
-    fontSize: 14,
-    color: '#4b5563',
-    textDecorationLine: 'underline',
+    color: '#9ca3af',
+    textDecoration: 'underline',
+    fontSize: '14px',
   },
   socialRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 12,
+    display: 'flex',
+    justifyContent: 'center',
+    gap: '12px',
+    marginBottom: '12px',
   },
   social: {
-    fontSize: 20,
-    marginHorizontal: 8,
+    fontSize: '20px',
+    textDecoration: 'none',
+    color: '#fff',
   },
   brand: {
-    fontSize: 16,
+    fontSize: '16px',
     fontWeight: 'bold',
-    color: '#1f2937',
   },
   copy: {
-    fontSize: 12,
-    color: '#6b7280',
-    marginTop: 4,
+    fontSize: '12px',
+    color: '#9ca3af',
   },
-});
+};

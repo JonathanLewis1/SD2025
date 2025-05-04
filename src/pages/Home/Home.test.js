@@ -9,3 +9,5 @@ test('Given a buyer is on home page, when they view the screen, then the Explore
     render(<Home />);
     expect(screen.getByText(/explore products/i)).toBeInTheDocument();
 });
+
+

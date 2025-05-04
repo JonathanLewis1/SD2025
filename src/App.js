@@ -13,6 +13,8 @@ import Layout from './components/Layout.js';
 import About from './pages/About/About.js';
 import ProductDetail from './pages/Home/ProductDetail.js';
 import ProtectedRoute from './components/ProtectedRoute'; // if you're using role-based routing
+import PrivacyPolicy from './pages/About/PrivacyPolicy';
+import ContactAdmin from './pages/About/ContactAdmin';
 
 const App = () => {
   return (
@@ -56,6 +58,10 @@ const App = () => {
           /> */}
 
           <Route path="*" element={<NotFoundPage />} />
+
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/contact-admin" element={<ContactAdmin />} />
+
         </Routes>
       </Layout>
     </Router>
