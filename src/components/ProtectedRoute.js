@@ -13,7 +13,7 @@ export default function ProtectedRoute({ children, allowedRoles }) {
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       if (!user || !user.emailVerified) {
-        setUserRole(null);
+        setUserRole(null); // Set role to null if not authenticated or email not verified
         setLoading(false);
         return;
       }
@@ -23,7 +23,7 @@ export default function ProtectedRoute({ children, allowedRoles }) {
         const docSnap = await getDoc(docRef);
 
         if (docSnap.exists()) {
-          setUserRole(docSnap.data().role);
+          setUserRole(docSnap.data().role); // Set the user's role from Firestore
         } else {
           setError('User role not found.');
         }
@@ -34,19 +34,22 @@ export default function ProtectedRoute({ children, allowedRoles }) {
       setLoading(false);
     });
 
-    return () => unsubscribe();
+    return () => unsubscribe(); // Clean up the subscription on component unmount
   }, []);
 
-  if (loading) return <div>Loading...</div>; // or a loading spinner
+  // Show a loading spinner or message while fetching user data
+  if (loading) return <div>Loading...</div>;
 
+  // Handle errors by redirecting to an error page or showing a message
   if (error) {
-    return <Navigate to="/error" />; // You can create an error page or handle it differently
+    return <Navigate to="/error" />;
   }
 
-  // If no user or role mismatch, redirect to login or unauthorized page
+  // If no user is found or the role doesn't match, redirect to login page
   if (!userRole || !allowedRoles.includes(userRole)) {
     return <Navigate to="/login" />;
   }
 
+  // If everything is okay, render the children (protected content)
   return children;
 }

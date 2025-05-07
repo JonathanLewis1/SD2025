@@ -1,7 +1,7 @@
-
-
-import React from 'react';
+import React, { useState, useEffect, useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { getAuth, onAuthStateChanged } from 'firebase/auth'; // Firebase Auth
+import { auth } from './firebase'; // Assuming you have firebase.js exporting auth
 
 import NotFoundPage from './pages/NotFoundPage.js';
 import Login from './pages/Login/Login.js';
@@ -17,51 +17,76 @@ import PrivacyPolicy from './pages/About/PrivacyPolicy';
 import ContactAdmin from './pages/About/ContactAdmin';
 
 const App = () => {
+  const [user, setUser] = useState(null); // State to store the logged-in user
+  const [loading, setLoading] = useState(true); // State to check loading during auth status check
+
+  useEffect(() => {
+    // Listen for user authentication status changes
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setLoading(false); // Set loading to false once the user is fetched
+    });
+
+    return () => unsubscribe(); // Clean up the listener when the component unmounts
+  }, []);
+
+  if (loading) {
+    return <div>Loading...</div>; // Show a loading state while the user status is being checked
+  }
+
   return (
     <Router>
       <Layout>
         <Routes>
-          <Route path="/" element={<Navigate to="/login" />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/signup" element={<SignUp />} />
-          <Route path="/admin" element={<Admin />} />
-          <Route path = '/about' element={<About />} />
-
-          {/* Public product detail page */}
+          <Route path="/" element={<Navigate to={user ? '/home' : '/login'} />} /> {/* Redirect based on auth status */}
+          <Route path="/login" element={!user ? <Login /> : <Navigate to="/home" />} />
+          <Route path="/signup" element={!user ? <SignUp /> : <Navigate to="/home" />} />
+          
+          {/* Public pages */}
+          <Route path="/about" element={<About />} />
           <Route path="/product/:productId" element={<ProductDetail />} />
-
-          {/* Role-protected routes (edit roles as needed) */}
+          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+          <Route path="/contact-admin" element={<ContactAdmin />} />
+          
+          {/* Role-based routes */}
           <Route
             path="/home"
             element={
-              <ProtectedRoute allowedRoles={['buyer', 'seller', 'admin']}>
-                <Home />
-              </ProtectedRoute>
+              user ? (
+                <ProtectedRoute allowedRoles={['buyer', 'seller', 'admin']}>
+                  <Home />
+                </ProtectedRoute>
+              ) : (
+                <Navigate to="/login" />
+              )
             }
           />
           <Route
             path="/sellerpage"
             element={
-              <ProtectedRoute allowedRoles={['seller', 'admin']}>
-                <SellerPage />
-              </ProtectedRoute>
+              user ? (
+                <ProtectedRoute allowedRoles={['seller', 'admin']}>
+                  <SellerPage />
+                </ProtectedRoute>
+              ) : (
+                <Navigate to="/login" />
+              )
             }
           />
-
-          {/* <Route
-            path="/seller-dashboard"
+          <Route
+            path="/admin"
             element={
-              <ProtectedRoute allowedRoles={['seller', 'admin']}>
-                <h1>Seller Dashboard (Coming Soon)</h1>
-              </ProtectedRoute>
+              user ? (
+                <ProtectedRoute allowedRoles={['admin']}>
+                  <Admin />
+                </ProtectedRoute>
+              ) : (
+                <Navigate to="/login" />
+              )
             }
-          /> */}
-
+          />
+          
           <Route path="*" element={<NotFoundPage />} />
-
-          <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-          <Route path="/contact-admin" element={<ContactAdmin />} />
-
         </Routes>
       </Layout>
     </Router>
