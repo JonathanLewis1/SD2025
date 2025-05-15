@@ -6,6 +6,9 @@ import '../../App.css';
 // import { collection, doc, setDoc } from "firebase/firestore";
 import { doc, setDoc } from "firebase/firestore";
 import { db } from "../../firebase";
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../../firebase';
+
 
 
 const SignUp = () => {
@@ -19,6 +22,8 @@ const SignUp = () => {
 
   const handleSignUp = async (e) => {
     e.preventDefault();
+    setError(''); // Clear any previous errors
+
     if (!firstName) {
       setError('First Name is required');
       return;
@@ -35,26 +40,30 @@ const SignUp = () => {
       setError('Password is required');
       return;
     }
+
     try {
+      // Create user in Firebase Authentication
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
       // Send verification email
       await sendEmailVerification(user);
 
-      // Save extra data to Firestore
-      await setDoc(doc(db, "users", user.uid), {
+      // Call the registerUserProfile function only after successful user creation
+      const registerUserProfile = httpsCallable(functions, 'registerUserProfile');
+      await registerUserProfile({
+        uid: user.uid,
         firstName,
         lastName,
         role,
         email,
-        createdAt: new Date().toISOString(),
       });
+
+      console.log('Navigating to login page after successful sign-up');
       navigate('/login');
     } catch (err) {
       setError(err.message);
     }
-    
   };
 
   return (
