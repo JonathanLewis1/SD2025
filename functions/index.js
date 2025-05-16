@@ -7,8 +7,12 @@
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
 
-const {onRequest} = require("firebase-functions/v2/https");
+const {onCall} = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
+const admin = require("firebase-admin");
+admin.initializeApp();
+
+const db = admin.firestore();
 
 // Create and deploy your first functions
 // https://firebase.google.com/docs/functions/get-started
@@ -18,50 +22,73 @@ const logger = require("firebase-functions/logger");
 //   response.send("Hello from Firebase!");
 // });
 
-const functions = require("firebase-functions");
-const admin = require("firebase-admin");
-admin.initializeApp();
-
-const db = admin.firestore();
-
 // Get user role by UID
-exports.getUserRole = functions.https.onCall(async (data, context) => {
-    const uid = context.auth?.uid;
-    if (!uid) {
-      throw new functions.https.HttpsError('unauthenticated', 'User must be logged in');
-    }
+exports.getUserRole = onCall({
+  cors: true,
+  maxInstances: 10,
+}, async (request) => {
+  logger.info('getUserRole function called', { auth: request.auth });
   
-    try {
-      const userDoc = await db.collection('users').doc(uid).get();
-      if (!userDoc.exists) {
-        throw new functions.https.HttpsError('not-found', 'User profile not found');
-      }
-      return { role: userDoc.data().role };
-    } catch (error) {
-      throw new functions.https.HttpsError('unknown', error.message);
-    }
-  });
-  
+  if (!request.auth) {
+    logger.error('No auth context in request');
+    throw new Error('User must be logged in');
+  }
 
-exports.registerUserProfile = functions.https.onCall(async (data, context) => {
-    console.log('Registering user profile with data:', data);
-    const { uid, firstName, lastName, role, email } = data;
-    if (!uid || !firstName || !lastName || !role || !email) {
-      throw new functions.https.HttpsError("invalid-argument", "Missing required fields.");
+  const uid = request.auth.uid;
+  logger.info('Processing request for user', { uid });
+
+  try {
+    const userDoc = await db.collection('users').doc(uid).get();
+    if (!userDoc.exists) {
+      logger.error('User document not found', { uid });
+      throw new Error('User profile not found');
     }
+    
+    const userData = userDoc.data();
+    logger.info('User role retrieved successfully', { uid, role: userData.role });
+    return { role: userData.role };
+  } catch (error) {
+    logger.error('Error in getUserRole function', { error: error.message, uid });
+    throw new Error(error.message);
+  }
+});
+
+exports.registerUserProfile = onCall({
+  cors: true,
+  maxInstances: 10,
+}, async (request) => {
+  logger.info('registerUserProfile function called', { auth: request.auth });
   
-    try {
-      await admin.firestore().collection("users").doc(uid).set({
-        firstName,
-        lastName,
-        role,
-        email,
-        createdAt: new Date().toISOString(),
-      });
-      return { success: true };
-    } catch (error) {
-      throw new functions.https.HttpsError("unknown", error.message);
-    }
-  });
+  if (!request.auth) {
+    logger.error('No auth context in request');
+    throw new Error('User must be logged in');
+  }
+
+  const { firstName, lastName, role, email } = request.data;
+  const uid = request.auth.uid;
+
+  logger.info('Processing registration for user', { uid, email });
+
+  if (!firstName || !lastName || !role || !email) {
+    logger.error('Missing required fields', { firstName, lastName, role, email });
+    throw new Error('Missing required fields');
+  }
+
+  try {
+    await db.collection('users').doc(uid).set({
+      firstName,
+      lastName,
+      role,
+      email,
+      createdAt: new Date().toISOString(),
+    });
+    logger.info('User profile registered successfully', { uid });
+    return { success: true };
+  } catch (error) {
+    logger.error('Error registering user profile', { error: error.message, uid });
+    throw new Error(error.message);
+  }
+});
+
 
 

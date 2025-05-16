@@ -16,10 +16,11 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const functions = getFunctions(app);
+const functions = getFunctions(app, 'us-central1');
 const db = getFirestore(app);
 const storage = getStorage(app);
-export { auth, db , storage, functions};
+
+export { auth, db, storage, functions };
 
 
 

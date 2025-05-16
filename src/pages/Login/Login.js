@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { signInWithEmailAndPassword, sendPasswordResetEmail, signOut } from 'firebase/auth';
+import React, { useState, useEffect } from 'react';
+import { signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../firebase';
@@ -12,53 +12,118 @@ const Login = () => {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [resetMessage, setResetMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        console.log('Auth state changed - User is signed in:', user.uid);
+      } else {
+        console.log('Auth state changed - User is signed out');
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setResetMessage('');
+    setIsLoading(true);
   
     if (!email || !password) {
       setError('Email and password are required.');
+      setIsLoading(false);
       return;
     }
   
     try {
-      await setPersistence(auth, browserSessionPersistence); // 🔐 Enables session linking
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
+      // Set persistence first
+      await setPersistence(auth, browserSessionPersistence);
+      console.log('Persistence set to session');
 
+      // Sign in user
+      const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-  
+      console.log('User signed in:', user.uid);
+
       if (!user.emailVerified) {
         setError('Please verify your email before logging in.');
-        await signOut(auth); // Keep them logged out until verified
+        await signOut(auth);
+        setIsLoading(false);
         return;
       }
-  
-      // Ensure uid is available before calling the function
-      if (!user.uid) {
-        setError('User ID is missing. Please try again.');
+
+      // Force refresh token
+      const token = await user.getIdToken(true);
+      console.log('Token refreshed');
+      
+      if (!token) {
+        setError('Failed to get authentication token. Please try again.');
+        setIsLoading(false);
         return;
       }
-  
-      // Call the Cloud Function to get user role
-      const getUserRole = httpsCallable(functions, 'getUserRole');
-      const response = await getUserRole();
-      const role = response.data.role;
-  
-      // Redirect based on role
-      console.log('Redirecting user based on role:', role);
-      if (role === 'buyer') {
-        navigate('/home');
-      } else if (role === 'seller') {
-        navigate('/sellerpage');
-      } else if (role === 'admin') {
-        navigate('/admin');
-      } else {
-        setError('User role not recognized.');
+
+      // Wait for auth state to be fully established
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+      try {
+        // Ensure we're still authenticated
+        const currentUser = auth.currentUser;
+        if (!currentUser) {
+          throw new Error('User authentication lost');
+        }
+
+        // Get a fresh token right before the call
+        const freshToken = await currentUser.getIdToken(true);
+        console.log('Fresh token obtained for cloud function call');
+
+        const getUserRole = httpsCallable(functions, 'getUserRole');
+        console.log('Calling getUserRole function with fresh token:', freshToken.substring(0, 10) + '...');
+        
+        // Add a small delay to ensure token propagation
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        const response = await getUserRole();
+        console.log('getUserRole response:', response.data);
+        
+        if (!response.data || !response.data.role) {
+          console.error('Invalid response from getUserRole:', response);
+          throw new Error('Invalid response from getUserRole function');
+        }
+        
+        const { role } = response.data;
+        console.log('User role retrieved:', role);
+
+        // Redirect based on role
+        console.log('Redirecting user based on role:', role);
+        if (role === 'buyer') {
+          navigate('/home');
+        } else if (role === 'seller') {
+          navigate('/sellerpage');
+        } else if (role === 'admin') {
+          navigate('/admin');
+        } else {
+          console.error('Unrecognized role:', role);
+          setError('User role not recognized.');
+        }
+      } catch (funcError) {
+        console.error('Cloud function error:', funcError);
+        if (funcError.code === 'functions/unauthenticated') {
+          setError('Authentication failed. Please try logging in again.');
+        } else if (funcError.code === 'functions/not-found') {
+          setError('User profile not found. Please contact support.');
+        } else if (funcError.message === 'User authentication lost') {
+          setError('Authentication session expired. Please try logging in again.');
+        } else if (funcError.message === 'Invalid response from getUserRole function') {
+          setError('Failed to get user role. Please try again.');
+        } else {
+          console.error('Unexpected error:', funcError);
+          setError('An unexpected error occurred. Please try again.');
+        }
       }
-  
     } catch (err) {
       console.error("Login failed:", err);
       if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
@@ -72,6 +137,8 @@ const Login = () => {
       } else {
         setError('Login failed: ' + err.message);
       }
+    } finally {
+      setIsLoading(false);
     }
   };
   

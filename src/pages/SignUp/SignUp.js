@@ -46,6 +46,19 @@ const SignUp = () => {
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
+      console.log("User created:", {
+      uid: user.uid,
+      email: user.email,
+      emailVerified: user.emailVerified,
+      metadata: user.metadata,
+    });
+    console.log("Registering user profile with data:", {
+      uid: user.uid,
+      firstName,
+      lastName,
+      role,
+      email,
+    });
       // Send verification email
       await sendEmailVerification(user);
 
