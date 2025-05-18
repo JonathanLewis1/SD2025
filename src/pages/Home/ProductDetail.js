@@ -2,10 +2,12 @@ import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { useCart } from '../../context/CartContext';
 
 const ProductDetail = () => {
   const { productId } = useParams();
   const [product, setProduct] = useState(null);
+  const { addToCart } = useCart();
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -13,31 +15,33 @@ const ProductDetail = () => {
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const data = docSnap.data();
-        setProduct(data);
+        setProduct({ id: docSnap.id, ...data });
 
         setTimeout(() => {
-        const stockEl = document.getElementById("stock");
-        const btn = document.getElementById("cart");
-        if (!stockEl) return;
+          const stockEl = document.getElementById("stock");
+          const btn = document.getElementById("cart");
+          if (!stockEl) return;
 
-        if (data.stock === 0) {
-          stockEl.innerText = "This product is out of stock.";
-          btn.hidden = true;
-        } else if (data.stock <= 5) {
-          stockEl.innerText = "There are less than 5 of this product in stock.";
-        } else {
-          stockEl.innerText = "";
-        }
-      }, 0);
+          if (data.stock === 0) {
+            stockEl.innerText = "This product is out of stock.";
+            btn.hidden = true;
+          } else if (data.stock <= 5) {
+            stockEl.innerText = "There are less than 5 of this product in stock.";
+          } else {
+            stockEl.innerText = "";
+          }
+        }, 0);
       }
-      
     };
     
     fetchProduct();
   }, [productId]);
 
-  const addToCart = async () => {
-    //do something here to add to cart
+  const handleAddToCart = () => {
+    if (product) {
+      addToCart(product);
+      alert("Product added to cart!");
+    }
   };
 
   if (!product) return <p style={styles.loading}>Loading product details...</p>;
@@ -51,7 +55,7 @@ const ProductDetail = () => {
           <p style={styles.price}>R{product.price}</p>
           <p style={styles.description}>{product.description}</p>
           <p id="stock" style={styles.stock}></p>
-          <button id="cart" onClick={addToCart} style={styles.button}>Add to Cart</button>
+          <button id="cart" onClick={handleAddToCart} style={styles.button}>Add to Cart</button>
         </div>
       </div>
     </div>
