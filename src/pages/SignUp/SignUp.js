@@ -43,6 +43,14 @@ const SignUp = () => {
 
     try {
       // Create user in Firebase Authentication
+      const checkBanned = httpsCallable(functions, 'isEmailBanned');
+      const banCheck = await checkBanned({ email });
+      if (banCheck.data.banned) {
+        setError('This email has been banned. You cannot sign up.');
+        return;
+      }
+
+
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 

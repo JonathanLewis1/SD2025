@@ -80,6 +80,14 @@ const Login = () => {
         const freshToken = await currentUser.getIdToken(true);
         console.log('Fresh token obtained for cloud function call');
 
+        const checkBanned = httpsCallable(functions, 'isEmailBanned');
+        const banCheck = await checkBanned({ email });
+        if (banCheck.data.banned) {
+          setError('Your account has been banned.');
+          await signOut(auth);
+          return;
+        }
+
         const getUserRole = httpsCallable(functions, 'getUserRole');
         console.log('Calling getUserRole function with fresh token:', freshToken.substring(0, 10) + '...');
         

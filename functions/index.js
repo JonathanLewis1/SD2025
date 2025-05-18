@@ -90,5 +90,60 @@ exports.registerUserProfile = onCall({
   }
 });
 
+exports.getAllUsers = onCall({ cors: true }, async (request) => {
+  const snapshot = await db.collection('users').get();
+  return snapshot.docs.map(doc => ({
+    id: doc.id,
+    ...doc.data()
+  }));
+});
+
+exports.getAllComplaints = onCall({ cors: true }, async (request) => {
+  const snapshot = await db.collection('complaints').get();
+  return snapshot.docs.map(doc => doc.data());
+});
+
+exports.banUser = onCall({ cors: true }, async (request) => {
+  const { userId, email } = request.data;
+  if (!userId || !email) throw new Error('Missing user ID or email');
+
+  try {
+    await db.collection('users').doc(userId).update({ banned: true });
+    await db.collection('bannedEmails').doc(email).set({ banned: true });
+    return { success: true };
+  } catch (error) {
+    throw new Error('Failed to ban user: ' + error.message);
+  }
+});
 
 
+exports.submitComplaint = onCall({ cors: true }, async (request) => {
+  const { name, email, message } = request.data;
+
+  if (!name || !email || !message) {
+    throw new Error('All fields are required');
+  }
+
+  try {
+    await db.collection('complaints').add({
+      name,
+      email,
+      message,
+      createdAt: new Date().toISOString()
+    });
+    return { success: true };
+  } catch (error) {
+    throw new Error('Failed to submit complaint: ' + error.message);
+  }
+});
+
+
+exports.isEmailBanned = onCall({ cors: true }, async (request) => {
+  const { email } = request.data;
+  if (!email) throw new Error('Missing email');
+
+  const docRef = db.collection('bannedEmails').doc(email);
+  const docSnap = await docRef.get();
+
+  return { banned: docSnap.exists };
+});
