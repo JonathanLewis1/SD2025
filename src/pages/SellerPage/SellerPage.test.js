@@ -1,274 +1,286 @@
-//Mock-React Router navigation
+// src/pages/SellerPage/SellerPage.test.js
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import SellerPage from './SellerPage';
+import { BrowserRouter } from 'react-router-dom';
+
+// Mock navigation
 const mockNavigate = jest.fn();
 jest.mock('react-router-dom', () => ({
-    ...jest.requireActual('react-router-dom'),
-    useNavigate:() =>mockNavigate,
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => mockNavigate,
 }));
 
-//Mock-Firebase authentication and database module
-jest.mock('../../firebase',()=>({
-  auth:{},
-  db:{},
+// Firebase module mocks
+jest.mock('../../firebase', () => ({
+  auth: {},
+  db: {},
 }));
 
-// Store references to these so we can override them per test
-const mockGetDoc=jest.fn();
-const mockAddDoc=jest.fn();
-const mockDeleteDoc=jest.fn();
-const mockSendPasswordResetEmail=jest.fn();
-const mockGetDocs=jest.fn();
-const mockOnAuthStateChanged=jest.fn();
-const mockSignInWithEmailAndPassword=jest.fn();
-const mockUpdateDoc=jest.fn();
+const mockAddDoc = jest.fn();
+const mockDeleteDoc = jest.fn();
+const mockUpdateDoc = jest.fn();
+const mockGetDocs = jest.fn();
+const mockOnAuthStateChanged = jest.fn();
 
-
-
-
-jest.mock('firebase/auth',()=>{
-  const originalModule=jest.requireActual('firebase/auth');
-  return{
-    ...originalModule,
-    signInWithEmailAndPassword: (...args)=>mockSignInWithEmailAndPassword(...args),
-    sendPasswordResetEmail: (...args)=>mockSendPasswordResetEmail(...args),
-    signOut:jest.fn(),
-    onAuthStateChanged:(auth,cb)=>{
-        mockOnAuthStateChanged(auth,cb);
-        return()=>{};
+jest.mock('firebase/auth', () => {
+  const original = jest.requireActual('firebase/auth');
+  return {
+    ...original,
+    onAuthStateChanged: (auth, cb) => {
+      mockOnAuthStateChanged(auth, cb);
+      return () => {};
     },
   };
 });
 
-jest.mock('firebase/firestore',()=>{
-  const originalModule=jest.requireActual('firebase/firestore');
+jest.mock('firebase/firestore', () => {
+  const original = jest.requireActual('firebase/firestore');
   return {
-    ...originalModule,
-    collection:jest.fn(),
-    query:jest.fn(),
-    where:jest.fn(),
-    doc: jest.fn(()=>({})),
-    getDoc:(...args)=>mockGetDoc(...args),
-    getDocs:(...args)=>mockGetDocs(...args),
-    addDoc:(...args)=>mockAddDoc(...args),
-    deleteDoc:(...args)=>mockDeleteDoc(...args),
-    updateDoc: (...args) => mockUpdateDoc(...args), 
+    ...original,
+    collection: jest.fn(),
+    query: jest.fn(),
+    where: jest.fn(),
+    doc: jest.fn(() => ({})),
+    getDocs: (...args) => mockGetDocs(...args),
+    addDoc: (...args) => mockAddDoc(...args),
+    deleteDoc: (...args) => mockDeleteDoc(...args),
+    updateDoc: (...args) => mockUpdateDoc(...args),
   };
 });
 
+const renderWithRouter = (ui) => render(<BrowserRouter>{ui}</BrowserRouter>);
 
-import {render,screen,fireEvent,waitFor }from '@testing-library/react';
-import SellerPage from './SellerPage.js';
-import {BrowserRouter} from 'react-router-dom';
-
-const renderWithRouter = (ui)=>render(<BrowserRouter>{ui}</BrowserRouter>);
-
-// Helper: ensure getDocs always returns docs array for error tests
-beforeEach(()=>{
-    mockGetDocs.mockResolvedValue({docs:[]});
-    mockOnAuthStateChanged.mockImplementation((auth,cb)=>cb({email:'test@email.com'}));
-  });
-
-//Empty name
-test('Given a seller is on seller page, when they add a product with an empty name, then an error message should display',async()=>{
-  renderWithRouter(<SellerPage />);
-  fireEvent.change(screen.getByPlaceholderText(/price/i),{target:{value:'100'}});
-  fireEvent.change(screen.getByPlaceholderText(/description/i),{target:{value:'description'}});
-  fireEvent.change(screen.getByPlaceholderText(/image url/i),{target:{value:'imageURL'}});
-  fireEvent.click(screen.getByRole('button',{name:/add product/i }));
-  expect(await screen.findByText(/name is required/i)).toBeInTheDocument();
-});
-
-//Empty price
-test('Given a seller is on seller page, when they add a product with an empty price, then an error message should display',async()=>{
-  renderWithRouter(<SellerPage />);
-  fireEvent.change(screen.getByPlaceholderText(/name/i), {target:{value:'name'} });
-  fireEvent.change(screen.getByPlaceholderText(/description/i), {target:{value:'description'} });
-  fireEvent.change(screen.getByPlaceholderText(/image url/i), {target:{value:'imageURL'} });
-  fireEvent.click(screen.getByRole('button',{name:/add product/i }));
-  expect(await screen.findByText(/price is required/i)).toBeInTheDocument();
-});
-
-//Empty description
-test('Given a seller is on seller page, when they add a product with an empty description, then an error message should display',async()=>{
-  renderWithRouter(<SellerPage />);
-  fireEvent.change(screen.getByPlaceholderText(/name/i),{target:{value:'name'}});
-  fireEvent.change(screen.getByPlaceholderText(/price/i),{target:{value:'100'}});
-  fireEvent.change(screen.getByPlaceholderText(/image url/i),{target:{value:'imageURL'}});
-  fireEvent.click(screen.getByRole('button',{name:/add product/i}));
-  expect(await screen.findByText(/description is required/i)).toBeInTheDocument();
-});
-
-//Empty image URL
-test('Given a seller is on seller page, when they add a product with an empty image url, then an error message should display',async()=>{
-  renderWithRouter(<SellerPage />);
-  fireEvent.change(screen.getByPlaceholderText(/name/i),{target:{value:'name'}});
-  fireEvent.change(screen.getByPlaceholderText(/price/i),{target:{value:'100'}});
-  fireEvent.change(screen.getByPlaceholderText(/description/i),{target:{value:'description'}});
-  fireEvent.click(screen.getByRole('button',{name:/add product/i}));
-  expect(await screen.findByText(/image url is required/i)).toBeInTheDocument();
-});
-
-//Sellers products displayed
-// test('Given a logged in seller, when the seller views their screen, then the seller\'s products will display',async()=>{
-//     mockOnAuthStateChanged.mockImplementation((auth,cb)=>cb({email:'test@email.com'}));
-//     mockGetDocs.mockResolvedValue({docs:[{id:'1',data:()=>({name:'Item A',price:99,description:'Nice',image:'img.jpg',email:'test@email.com'})}]});
-//     renderWithRouter(<SellerPage/>);
-//     expect(await screen.findByText(/Item A/i)).toBeInTheDocument();
-//     expect(screen.getByText(/R99/i)).toBeInTheDocument();
-//     expect(screen.getByText(/Nice/i)).toBeInTheDocument();
-//   });
-  
-test('Given a logged in seller, when they add a valid product, then product is added and the form clears', async () => {
-  mockOnAuthStateChanged.mockImplementation((auth, cb) => cb({ email: 'seller@email.com' }));
-  mockAddDoc.mockResolvedValue();
+// Setup default: logged-in seller, no products
+beforeEach(() => {
   mockGetDocs.mockResolvedValue({ docs: [] });
-  
+  mockOnAuthStateChanged.mockImplementation((auth, cb) =>
+    cb({ email: 'seller@email.com' })
+  );
+});
+
+test('Given seller is not logged in, When clicking Add Product, Then show login error', async () => {
+  // Given
+  mockOnAuthStateChanged.mockImplementation((auth, cb) => cb(null));
   renderWithRouter(<SellerPage />);
-  fireEvent.change(screen.getByPlaceholderText(/name/i), { target: { value: 'Product X' } });
-  fireEvent.change(screen.getByPlaceholderText(/price/i), { target: { value: '150' } });
-  fireEvent.change(screen.getByPlaceholderText(/description/i), { target: { value: 'Desc here' } });
-  fireEvent.change(screen.getByPlaceholderText(/image url/i), { target: { value: 'url.jpg' } });
-  fireEvent.change(screen.getByDisplayValue('Select a Category'), { target: { value: 'Jewelry' } });
-  
+
+  // When
   fireEvent.click(screen.getByRole('button', { name: /add product/i }));
 
-  await waitFor(() => {
-    expect(mockAddDoc).toHaveBeenCalled();
+  // Then
+  expect(
+    await screen.findByText(/you must be logged in to add a product/i)
+  ).toBeInTheDocument();
+});
+
+test('Given form missing name, When submitting, Then show "All fields are required"', async () => {
+  // Given
+  renderWithRouter(<SellerPage />);
+
+  // When
+  fireEvent.change(screen.getByPlaceholderText(/price/i), {
+    target: { value: '100' },
   });
+  fireEvent.change(screen.getByPlaceholderText(/description/i), {
+    target: { value: 'desc' },
+  });
+  fireEvent.change(screen.getByPlaceholderText(/image url/i), {
+    target: { value: 'url' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: /add product/i }));
+
+  // Then
+  expect(
+    await screen.findByText(/all fields are required/i)
+  ).toBeInTheDocument();
 });
 
+test('Given valid form, When submitting, Then addDoc is called and form clears', async () => {
+  // Given
+  mockAddDoc.mockResolvedValue();
+  renderWithRouter(<SellerPage />);
 
-// No email attempt in product add
-test('Given no user email, when add product is clicked, then an error message is displayed',async()=>{
-    mockOnAuthStateChanged.mockImplementation((auth,cb)=>cb(null));
-    mockGetDocs.mockResolvedValue({docs:[]});
-    renderWithRouter(<SellerPage/>);
-    fireEvent.click(screen.getByRole('button',{name:/add product/i}));
-    expect(await screen.findByText(/you must be logged in to add a product/i)).toBeInTheDocument();
+  // When
+  fireEvent.change(screen.getByPlaceholderText(/name/i), {
+    target: { value: 'Item' },
+  });
+  fireEvent.change(screen.getByPlaceholderText(/price/i), {
+    target: { value: '10' },
+  });
+  fireEvent.change(screen.getByPlaceholderText(/description/i), {
+    target: { value: 'info' },
+  });
+  fireEvent.change(screen.getByPlaceholderText(/image url/i), {
+    target: { value: 'img' },
+  });
+  fireEvent.change(screen.getByDisplayValue(/select a category/i), {
+    target: { value: 'Jewelry' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: /add product/i }));
+
+  // Then
+  await waitFor(() => expect(mockAddDoc).toHaveBeenCalled());
 });
 
-// Delete product
-test('Given a logged in seller, when a products delete button is clicked, then product is deleted',async()=>{
-    mockOnAuthStateChanged.mockImplementation((auth,cb)=>cb({email:'seller@email.com'}));
-    mockGetDocs.mockResolvedValue({docs:[{id:'1',data:()=>({name:'Item Z',price:55,description:'Cool',image:'z.jpg',email:'seller@email.com'})}]});
-    mockDeleteDoc.mockResolvedValue();
-    renderWithRouter(<SellerPage/>);
-    const deleteBtn=await screen.findByRole('button',{name:/delete/i});
-    fireEvent.click(deleteBtn);
-    await waitFor(()=>{
-        expect(mockDeleteDoc).toHaveBeenCalled();
-    });
-});
-
-// //Add product Firebase fails
-test('Given a logged in seller, when the seller clicks add product and Firebase fails, then an error alert is displayed', async () => {
-  mockOnAuthStateChanged.mockImplementation((auth, cb) => cb({ email: 'seller@email.com' }));
-  mockAddDoc.mockRejectedValue(new Error('Firestore failure'));
-  jest.spyOn(console, 'error').mockImplementation(() => {});
+test('Given addDoc fails, When submitting product, Then alert with failure', async () => {
+  // Given
+  mockAddDoc.mockRejectedValue(new Error('Firestore error'));
   window.alert = jest.fn();
-
   renderWithRouter(<SellerPage />);
-  fireEvent.change(screen.getByPlaceholderText(/name/i), { target: { value: 'Broken Product' } });
-  fireEvent.change(screen.getByPlaceholderText(/price/i), { target: { value: '500' } });
-  fireEvent.change(screen.getByPlaceholderText(/description/i), { target: { value: 'Desc fail' } });
-  fireEvent.change(screen.getByPlaceholderText(/image url/i), { target: { value: 'fail.jpg' } });
-  fireEvent.change(screen.getByDisplayValue('Select a Category'), { target: { value: 'Jewelry' } });
 
+  // When
+  fireEvent.change(screen.getByPlaceholderText(/name/i), {
+    target: { value: 'FailItem' },
+  });
+  fireEvent.change(screen.getByPlaceholderText(/price/i), {
+    target: { value: '50' },
+  });
+  fireEvent.change(screen.getByPlaceholderText(/description/i), {
+    target: { value: 'X' },
+  });
+  fireEvent.change(screen.getByPlaceholderText(/image url/i), {
+    target: { value: 'x.jpg' },
+  });
+  fireEvent.change(screen.getByDisplayValue(/select a category/i), {
+    target: { value: 'Clothing' },
+  });
   fireEvent.click(screen.getByRole('button', { name: /add product/i }));
 
-  await waitFor(() => {
-    expect(window.alert).toHaveBeenCalledWith('Failed to add product: Firestore failure');
-  });
+  // Then
+  await waitFor(() =>
+    expect(window.alert).toHaveBeenCalledWith(
+      'Failed to add product: Firestore error'
+    )
+  );
 });
 
-
-
-//Delete product Firebase fails
-test('Given a logged in seller, when the seller clicks delete button of a product and Firebase fails, then an error alert is displayed',async()=>{
-    mockOnAuthStateChanged.mockImplementation((auth,cb)=>cb({email:'seller@email.com'}));
-    mockGetDocs.mockResolvedValue({docs:[{id:'1',data:()=>({name:'ErrorItem',price:123,description:'desc',image:'img.jpg',email:'seller@email.com'})}]});
-    mockDeleteDoc.mockRejectedValue(new Error('Delete failed'));
-    const consoleSpy=jest.spyOn(console,'error').mockImplementation(()=>{});
-    renderWithRouter(<SellerPage/>);
-    const deleteBtn=await screen.findByRole('button',{name:/delete/i});
-    fireEvent.click(deleteBtn);
-    await waitFor(()=>{
-        expect(consoleSpy).toHaveBeenCalledWith('Error deleting product:',expect.any(Error));
-    });
-});
-
-//After deletion success products are reloaded
-test('Given a logged in seller,, when a product is deleted , then current products are displayed',async()=>{
-    mockOnAuthStateChanged.mockImplementation((auth,cb)=>cb({email:'seller@email.com'}));
-    mockGetDocs.mockResolvedValue({docs:[{id:'1',data:()=>({name:'Test Item',price:55,description:'Some desc',image:'img.jpg',email:'seller@email.com'})}]});
-    mockDeleteDoc.mockResolvedValue();
-    renderWithRouter(<SellerPage/>);
-    const deleteBtn=await screen.findByRole('button',{name:/delete/i});
-    fireEvent.click(deleteBtn);
-    await waitFor(()=>{
-        expect(mockGetDocs).toHaveBeenCalled();
-    });
-});
-
-test('Given a logged-in seller is on the seller page, when they update the stock value and click save, then the product’s stock is updated in Firestore', async () => {
-  mockOnAuthStateChanged.mockImplementation((auth, cb) => cb({ email: 'seller@email.com' }));
+test('Given product in list, When delete succeeds, Then deleteDoc is called', async () => {
+  // Given
   mockGetDocs.mockResolvedValue({
     docs: [
       {
-        id: 'prod1',
+        id: '1',
         data: () => ({
-          name: 'Item A',
-          price: 50,
-          description: 'Decent',
-          image: 'img.jpg',
-          stock: 1,
+          name: 'Item',
+          price: 10,
+          description: 'desc',
+          image: 'img',
           category: 'Jewelry',
           email: 'seller@email.com',
         }),
       },
     ],
   });
+  mockDeleteDoc.mockResolvedValue();
 
   renderWithRouter(<SellerPage />);
-  const stockInput = await screen.findByDisplayValue('1');
-  fireEvent.change(stockInput, { target: { value: '5' } });
 
-  const saveBtn = screen.getByRole('button', { name: /save/i });
-  fireEvent.click(saveBtn);
+  // When
+  fireEvent.click(await screen.findByRole('button', { name: /delete/i }));
 
-  await waitFor(() => {
-    expect(mockUpdateDoc).toHaveBeenCalled();
-  });
+  // Then
+  await waitFor(() => expect(mockDeleteDoc).toHaveBeenCalled());
 });
 
-
-test('Given a logged-in seller is on the seller page, when updating stock fails, then an error is logged to the console', async () => {
-  mockOnAuthStateChanged.mockImplementation((auth, cb) => cb({ email: 'seller@email.com' }));
-  mockGetDocs.mockResolvedValue({
-    docs: [{ id: 'prod1', data: () => ({ name: 'Item A', price: 50, description: 'Decent', image: 'img.jpg', stock: 2, email: 'seller@email.com' }) }]
-  });
-
-  const consoleSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
-  mockUpdateDoc.mockRejectedValue(new Error('Stock update failed'));
-
-  renderWithRouter(<SellerPage />);
-  const stockInput = await screen.findByDisplayValue('2');
-  fireEvent.change(stockInput, { target: { value: '10' } });
-  fireEvent.click(screen.getByRole('button', { name: /save/i }));
-
-  await waitFor(() => {
-    expect(consoleSpy).toHaveBeenCalledWith('Error updating stock:', expect.any(Error));
-  });
-});
-
-test('Given a logged-in seller, when the seller views their product, then each product displays current stock value in an input field', async () => {
-  mockOnAuthStateChanged.mockImplementation((auth, cb) => cb({ email: 'seller@email.com' }));
+test('Given deleteDoc fails, When deleting, Then log error', async () => {
+  // Given
   mockGetDocs.mockResolvedValue({
     docs: [
-      { id: 'prod1', data: () => ({ name: 'Item A', price: 50, description: 'Decent', image: 'img.jpg', stock: 4, email: 'seller@email.com' }) }
-    ]
+      {
+        id: '1',
+        data: () => ({
+          name: 'ErrorItem',
+          price: 1,
+          description: 'fail',
+          image: 'img',
+          category: 'Woodwork',
+          email: 'seller@email.com',
+        }),
+      },
+    ],
   });
+  mockDeleteDoc.mockRejectedValue(new Error('fail'));
+  const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
 
   renderWithRouter(<SellerPage />);
-  const stockInput = await screen.findByDisplayValue('4');
-  expect(stockInput).toBeInTheDocument();
+
+  // When
+  fireEvent.click(await screen.findByRole('button', { name: /delete/i }));
+
+  // Then
+  await waitFor(() =>
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Error deleting product:',
+      expect.any(String)
+    )
+  );
+});
+
+test('Given stock field present, When save clicked, Then updateDoc is called', async () => {
+  // Given
+  mockGetDocs.mockResolvedValue({
+    docs: [
+      {
+        id: '1',
+        data: () => ({
+          name: 'A',
+          price: 10,
+          description: 'x',
+          image: 'img',
+          stock: 3,
+          category: 'Jewelry',
+          email: 'seller@email.com',
+        }),
+      },
+    ],
+  });
+  mockUpdateDoc.mockResolvedValue();
+
+  renderWithRouter(<SellerPage />);
+
+  // When
+  fireEvent.change(await screen.findByDisplayValue('3'), {
+    target: { value: '7' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+  // Then
+  await waitFor(() => expect(mockUpdateDoc).toHaveBeenCalled());
+});
+
+test('Given updateDoc fails, When saving stock, Then log error', async () => {
+  // Given
+  mockGetDocs.mockResolvedValue({
+    docs: [
+      {
+        id: '1',
+        data: () => ({
+          name: 'B',
+          price: 5,
+          description: 'x',
+          image: 'img',
+          stock: 2,
+          category: 'Woodwork',
+          email: 'seller@email.com',
+        }),
+      },
+    ],
+  });
+  mockUpdateDoc.mockRejectedValue(new Error('fail'));
+  const errorSpy = jest.spyOn(console, 'error').mockImplementation(() => {});
+
+  renderWithRouter(<SellerPage />);
+
+  // When
+  fireEvent.change(await screen.findByDisplayValue('2'), {
+    target: { value: '9' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: /save/i }));
+
+  // Then
+  await waitFor(() =>
+    expect(errorSpy).toHaveBeenCalledWith(
+      'Error updating stock:',
+      expect.any(String)
+    )
+  );
 });

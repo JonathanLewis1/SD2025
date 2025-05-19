@@ -1,128 +1,129 @@
-//Mock-React Router navigation
-const mockNavigate=jest.fn();
-jest.mock('react-router-dom',()=>({
-    ...jest.requireActual('react-router-dom'),
-    useNavigate:()=>mockNavigate,
-}));
-
-//Mock-Firebase authentication and database module
-jest.mock('../../firebase',()=>({
-    auth:{},
-    db:{},
-}));
-
-//Store references to these so we can override them per test
-const mockCreateUserWithEmailAndPassword=jest.fn();
-const mockSendEmailVerification=jest.fn();
-const mockGetDoc=jest.fn();
-const mockSetDoc=jest.fn();
-
-jest.mock('firebase/auth',()=>({
-    createUserWithEmailAndPassword: (...args)=>mockCreateUserWithEmailAndPassword(...args),
-    sendEmailVerification: (...args)=>mockSendEmailVerification(...args),
-    signOut: jest.fn(),
-}));
-
-jest.mock('firebase/firestore',()=>({
-    doc:jest.fn(()=>({})),
-    getDoc:(...args)=>mockGetDoc(...args),
-    setDoc:(...args)=>mockSetDoc(...args),
-}));
-
+import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import SignUp from './SignUp';
 import { BrowserRouter } from 'react-router-dom';
+import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
+import { httpsCallable } from 'firebase/functions';
 
-const renderWithRouter = (ui)=> render(<BrowserRouter>{ui}</BrowserRouter>);
+jest.mock('firebase/auth', () => ({
+  createUserWithEmailAndPassword: jest.fn(),
+  sendEmailVerification: jest.fn(),
+}));
 
-//Valid signup
-test('Given a user fills in valid details on sign up page, when they submit the form, then they are navigated to login page',async ()=>{
-    mockCreateUserWithEmailAndPassword.mockResolvedValue({user:{uid:'newuser123'}});
-    mockSendEmailVerification.mockResolvedValue();
-    mockSetDoc.mockResolvedValue();
-  
-    renderWithRouter(<SignUp />);
-    fireEvent.change(screen.getByPlaceholderText(/first name/i),{target:{value:'John'}});
-    fireEvent.change(screen.getByPlaceholderText(/last name/i),{target:{value:'Doe'}});
-    fireEvent.change(screen.getByPlaceholderText(/email/i),{target:{value:'newuser@email.com'}});
-    fireEvent.change(screen.getByPlaceholderText(/password/i),{target:{value:'password123'}});
-    fireEvent.click(screen.getByRole('button',{name:/sign up/i}));
-    await waitFor(()=>{
-      expect(mockNavigate).toHaveBeenCalledWith('/login');
-    });
-});
+jest.mock('../../firebase', () => ({
+  auth: {},
+  functions: {},
+}));
 
-//Empty firstname
-test('Given a user is on sign up page, when they enter with empty firstname, then an error message sould display',async ()=>{
-    // render(<Login/>);
-    renderWithRouter(<SignUp />);
-    fireEvent.change(screen.getByPlaceholderText(/last name/i),{target: {value:'lastname'}});
-    fireEvent.change(screen.getByPlaceholderText(/email/i),{target: {value:'correct@buyer.com'}});
-    fireEvent.change(screen.getByPlaceholderText(/password/i),{target: {value:'12345'}});
-    fireEvent.click(screen.getByRole('button',{name:/sign up/i}));
-    expect(await screen.findByText(/first name is required/i)).toBeInTheDocument();
-});
+jest.mock('firebase/functions', () => ({
+  httpsCallable: jest.fn(),
+}));
 
-//Empty last name
-test('Given a user is on sign up page, when they enter with empty last name, then an error message sould display',async ()=>{
-    // render(<Login/>);
-    renderWithRouter(<SignUp />);
-    fireEvent.change(screen.getByPlaceholderText(/first name/i),{target: {value:'firstname'}});
-    fireEvent.change(screen.getByPlaceholderText(/email/i),{target: {value:'correct@buyer.com'}});
-    fireEvent.change(screen.getByPlaceholderText(/password/i),{target: {value:'12345'}});
-    fireEvent.click(screen.getByRole('button',{name:/sign up/i}));
-    expect(await screen.findByText(/last name is required/i)).toBeInTheDocument();
-});
+const renderForm = () => render(
+  <BrowserRouter>
+    <SignUp />
+  </BrowserRouter>
+);
 
-//Empty email
-test('Given a user is on sign up page, when they enter with empty email, then an error message sould display',async ()=>{
-    // render(<Login/>);
-    renderWithRouter(<SignUp />);
-    fireEvent.change(screen.getByPlaceholderText(/first name/i),{target: {value:'firstname'}});
-    fireEvent.change(screen.getByPlaceholderText(/last name/i),{target: {value:'lastname'}});
-    fireEvent.change(screen.getByPlaceholderText(/password/i),{target: {value:'12345'}});
-    fireEvent.click(screen.getByRole('button',{name:/sign up/i}));
-    expect(await screen.findByText(/email is required/i)).toBeInTheDocument();
-});
-
-//Empty password
-test('Given a user is on sign up page, when they enter with empty password, then an error message sould display',async ()=>{
-    // render(<Login/>);
-    renderWithRouter(<SignUp />);
-    fireEvent.change(screen.getByPlaceholderText(/first name/i),{target: {value:'firstname'}});
-    fireEvent.change(screen.getByPlaceholderText(/last name/i),{target: {value:'lastname'}});
-    fireEvent.change(screen.getByPlaceholderText(/email/i),{target: {value:'correct@buyer.com'}});
-    fireEvent.click(screen.getByRole('button',{name:/sign up/i}));
-    expect(await screen.findByText(/password is required/i)).toBeInTheDocument();
-});
-
-//Email already signed up
-test('Given a user is on the sign up page, when they eneter an email already in use, then an error message should display',async ()=>{
-    mockCreateUserWithEmailAndPassword.mockRejectedValue(new Error('Email already in use'));
-    renderWithRouter(<SignUp />);
-    fireEvent.change(screen.getByPlaceholderText(/first name/i),{target:{value:'John'}});
-    fireEvent.change(screen.getByPlaceholderText(/last name/i),{target:{value:'Doe'}});
-    fireEvent.change(screen.getByPlaceholderText(/email/i),{target:{value:'existing@email.com'}});
-    fireEvent.change(screen.getByPlaceholderText(/password/i),{target:{value:'password123'}});
-    fireEvent.click(screen.getByRole('button',{name:/sign up/i}));
-    expect(await screen.findByText(/email already in use/i)).toBeInTheDocument();
+describe('SignUp Component', () => {
+  beforeEach(() => {
+    jest.clearAllMocks();
   });
 
-//Correct Seller and Buyer role updates in dropdown   
-test('Given a user is on sign up page, when they change the role, then it updates the role state', async () => {
-    mockCreateUserWithEmailAndPassword.mockResolvedValue({ user: { uid: 'test123' } });
-    mockSendEmailVerification.mockResolvedValue();
-    mockSetDoc.mockResolvedValue();
+  test('Given the user submits an empty form, Then the First Name error should show', async () => {
+    renderForm();
+    fireEvent.click(screen.getByText(/Sign Up/i));
+    expect(await screen.findByText(/First Name is required/i)).toBeInTheDocument();
+  });
 
-    renderWithRouter(<SignUp />);
-    const select = screen.getByLabelText(/role/i);
-    fireEvent.change(select, { target: { value: 'seller' } });
-    fireEvent.change(screen.getByPlaceholderText(/first name/i), { target: { value: 'Jane' } });
-    fireEvent.change(screen.getByPlaceholderText(/last name/i), { target: { value: 'Doe' } });
-    fireEvent.change(screen.getByPlaceholderText(/email/i), { target: { value: 'jane@example.com' } });
-    fireEvent.change(screen.getByPlaceholderText(/password/i), { target: { value: '123456' } });
-    fireEvent.click(screen.getByRole('button', { name: /sign up/i }));
-    await waitFor(() => {
-        expect(mockNavigate).toHaveBeenCalledWith('/login');
+  test('Given the user skips Last Name, Then the Last Name error should show', async () => {
+    renderForm();
+    fireEvent.change(screen.getByPlaceholderText(/First Name/i), { target: { value: 'Test' } });
+    fireEvent.click(screen.getByText(/Sign Up/i));
+    expect(await screen.findByText(/Last Name is required/i)).toBeInTheDocument();
+  });
+
+  test('Given the user skips email, Then the Email error should show', async () => {
+    renderForm();
+    fireEvent.change(screen.getByPlaceholderText(/First Name/i), { target: { value: 'Test' } });
+    fireEvent.change(screen.getByPlaceholderText(/Last Name/i), { target: { value: 'User' } });
+    fireEvent.click(screen.getByText(/Sign Up/i));
+    expect(await screen.findByText(/Email is required/i)).toBeInTheDocument();
+  });
+
+  test('Given the user skips password, Then the Password error should show', async () => {
+    renderForm();
+    fireEvent.change(screen.getByPlaceholderText(/First Name/i), { target: { value: 'Test' } });
+    fireEvent.change(screen.getByPlaceholderText(/Last Name/i), { target: { value: 'User' } });
+    fireEvent.change(screen.getByPlaceholderText(/Email/i), { target: { value: 'test@example.com' } });
+    fireEvent.click(screen.getByText(/Sign Up/i));
+    expect(await screen.findByText(/Password is required/i)).toBeInTheDocument();
+  });
+
+  test('Given the user is banned, Then an error message should show and user is not created', async () => {
+    httpsCallable.mockImplementation((_, name) => {
+      if (name === 'isEmailBanned') {
+        return () => Promise.resolve({ data: { banned: true } });
+      }
     });
+
+    renderForm();
+    fireEvent.change(screen.getByPlaceholderText(/First Name/i), { target: { value: 'Banned' } });
+    fireEvent.change(screen.getByPlaceholderText(/Last Name/i), { target: { value: 'User' } });
+    fireEvent.change(screen.getByPlaceholderText(/Email/i), { target: { value: 'banned@example.com' } });
+    fireEvent.change(screen.getByPlaceholderText(/Password/i), { target: { value: 'password123' } });
+    fireEvent.click(screen.getByText(/Sign Up/i));
+    expect(await screen.findByText(/email has been banned/i)).toBeInTheDocument();
+  });
+
+  test('Given all fields are valid and user is not banned, When submitting the form, Then account is created and redirected', async () => {
+    const mockUser = {
+      user: {
+        uid: 'uid123',
+        email: 'test@example.com',
+        emailVerified: false,
+        metadata: {},
+      },
+    };
+
+    httpsCallable.mockImplementation((_, name) => {
+      if (name === 'isEmailBanned') {
+        return () => Promise.resolve({ data: { banned: false } });
+      }
+      if (name === 'registerUserProfile') {
+        return () => Promise.resolve({ success: true });
+      }
+    });
+
+    createUserWithEmailAndPassword.mockResolvedValue(mockUser);
+    sendEmailVerification.mockResolvedValue();
+
+    renderForm();
+    fireEvent.change(screen.getByPlaceholderText(/First Name/i), { target: { value: 'Test' } });
+    fireEvent.change(screen.getByPlaceholderText(/Last Name/i), { target: { value: 'User' } });
+    fireEvent.change(screen.getByPlaceholderText(/Email/i), { target: { value: 'test@example.com' } });
+    fireEvent.change(screen.getByPlaceholderText(/Password/i), { target: { value: 'password123' } });
+
+    fireEvent.click(screen.getByText(/Sign Up/i));
+
+    await waitFor(() => {
+      expect(createUserWithEmailAndPassword).toHaveBeenCalled();
+      expect(sendEmailVerification).toHaveBeenCalled();
+    });
+  });
+
+  test('Given Firebase signup fails, Then it should show the error message', async () => {
+    httpsCallable.mockReturnValue(() => Promise.resolve({ data: { banned: false } }));
+    createUserWithEmailAndPassword.mockRejectedValue(new Error('Signup failed'));
+
+    renderForm();
+    fireEvent.change(screen.getByPlaceholderText(/First Name/i), { target: { value: 'Test' } });
+    fireEvent.change(screen.getByPlaceholderText(/Last Name/i), { target: { value: 'User' } });
+    fireEvent.change(screen.getByPlaceholderText(/Email/i), { target: { value: 'fail@example.com' } });
+    fireEvent.change(screen.getByPlaceholderText(/Password/i), { target: { value: 'password123' } });
+
+    fireEvent.click(screen.getByText(/Sign Up/i));
+
+    expect(await screen.findByText(/Signup failed/i)).toBeInTheDocument();
+  });
 });

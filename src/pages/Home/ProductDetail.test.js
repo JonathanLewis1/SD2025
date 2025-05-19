@@ -1,7 +1,10 @@
-import { render, screen, waitFor } from '@testing-library/react';
+// src/pages/Home/ProductDetail.test.js
+import React from 'react';
+import { render, screen } from '@testing-library/react';
 import ProductDetail from './ProductDetail';
 import { BrowserRouter, Route, Routes } from 'react-router-dom';
 import { getDoc, doc } from 'firebase/firestore';
+import { CartProvider } from '../../context/CartContext';
 
 jest.mock('firebase/firestore', () => ({
   getDoc: jest.fn(),
@@ -12,14 +15,16 @@ jest.mock('../../firebase', () => ({
   db: {},
 }));
 
-const renderWithRouter = (ui, { route = '/product/123' } = {}) => {
+const renderWithProviders = (ui, { route = '/product/123' } = {}) => {
   window.history.pushState({}, 'Test page', route);
   return render(
-    <BrowserRouter>
-      <Routes>
-        <Route path="/product/:productId" element={ui} />
-      </Routes>
-    </BrowserRouter>
+    <CartProvider>
+      <BrowserRouter>
+        <Routes>
+          <Route path="/product/:productId" element={ui} />
+        </Routes>
+      </BrowserRouter>
+    </CartProvider>
   );
 };
 
@@ -34,25 +39,10 @@ const product = {
 test('Given a product ID, when detail page loads, then product info is shown', async () => {
   getDoc.mockResolvedValue({ exists: () => true, data: () => product });
 
-  renderWithRouter(<ProductDetail />);
+  renderWithProviders(<ProductDetail />);
+  
+  // verify all the main fields appear
   expect(await screen.findByText(/Elegant Vase/i)).toBeInTheDocument();
   expect(screen.getByText(/R250/i)).toBeInTheDocument();
   expect(screen.getByText(/Handmade ceramic vase/i)).toBeInTheDocument();
 });
-
-// test('Given a product with low stock, when it loads, then warning is displayed', async () => {
-//   getDoc.mockResolvedValue({ exists: () => true, data: () => ({ ...product, stock: 3 }) });
-//   renderWithRouter(<ProductDetail />);
-//   await waitFor(() => {
-//     expect(screen.getByText(/less than 5/i)).toBeInTheDocument();
-//   });
-// });
-
-// test('Given a product with 0 stock, when it loads, then out of stock message shows and button is hidden', async () => {
-//   getDoc.mockResolvedValue({ exists: () => true, data: () => ({ ...product, stock: 0 }) });
-//   renderWithRouter(<ProductDetail />);
-//   await waitFor(() => {
-//     expect(screen.getByText(/out of stock/i)).toBeInTheDocument();
-//     expect(screen.queryByRole('button', { name: /add to cart/i })).not.toBeInTheDocument();
-//   });
-// });

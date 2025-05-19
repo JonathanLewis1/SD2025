@@ -17,7 +17,7 @@ const SellerPage = () => {
 
   return (
     <div style = {styles.container}>
-        <h1>About Us</h1>
+      <h1 style={{ fontSize: 36, fontWeight: 'bold', color: '#3b82f6', textAlign: 'center', marginBottom: 24 }}>About Us</h1>  
     <section style={styles.section}>
       <article style = {styles.article}>
       <p>At CraftNest, we’re more than just a team — we’re a family of creators, collaborators, and visionaries brought together by a shared passion for creativity and craftsmanship. </p>
@@ -46,23 +46,22 @@ const styles = {
     marginBottom: 4,
   },
   section: {
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: '100vh',
-    padding: '2rem',
-    backgroundColor: '#feffdf'
-  },
+  display: 'flex',
+  justifyContent: 'center',
+  padding: '1.5rem',
+  backgroundColor: '#feffdf',
+},
+
   article: {
-    maxWidth: '800px',
-    width: '100%',
-    backgroundColor: '#fff',
-    padding: '2rem',
-    borderRadius: '12px',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
-    fontFamily: 'Arial, sans-serif',
-    lineHeight: '1.6',
-  },
+  maxWidth: '600px',
+  width: '100%',
+  backgroundColor: '#ffffff',
+  padding: '24px 32px',
+  borderRadius: 12,
+  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
+  fontFamily: 'Arial, sans-serif',
+  lineHeight: '1.6',
+},
   container: {
     backgroundColor: '#feffdf',
     minHeight: '100vh',
