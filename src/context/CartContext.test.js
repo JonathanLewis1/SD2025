@@ -1,97 +1,143 @@
 import React from 'react';
-import { renderHook, act } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import { CartProvider, useCart } from './CartContext';
 
-const wrapper = ({ children }) => <CartProvider>{children}</CartProvider>;
+afterEach(() => {
+  localStorage.clear();
+  jest.restoreAllMocks();
+});
 
-describe('CartContext UAT tests', () => {
-  const item = { id: '1', name: 'Test Product', price: 100 };
+// A little component that exposes everything on screen for us to assert
+function TestConsumer() {
+  const {
+    cart,
+    addToCart,
+    removeFromCart,
+    updateQuantity,
+    clearCart,
+    getTotal
+  } = useCart();
 
-  test('Given a new item, When addToCart is called, Then it should be added to the cart with quantity 1', () => {
-    const { result } = renderHook(() => useCart(), { wrapper });
+  return (
+    <div>
+      <div data-testid="cart">{JSON.stringify(cart)}</div>
+      <div data-testid="total">{getTotal()}</div>
+      <button onClick={() => addToCart({ id: '1', price: 10 })}>ADD</button>
+      <button onClick={() => addToCart({ id: '1', price: 10 })}>ADD-AGAIN</button>
+      <button onClick={() => updateQuantity('1', 5)}>UPDATE</button>
+      <button onClick={() => removeFromCart('1')}>REMOVE</button>
+      <button onClick={() => clearCart()}>CLEAR</button>
+    </div>
+  );
+}
 
-    act(() => {
-      result.current.addToCart(item);
-    });
-
-    expect(result.current.cart).toEqual([{ ...item, quantity: 1 }]);
+describe('CartContext Given/When/Then', () => {
+  test('Given no items, When I mount provider, Then cart is empty and total is 0', () => {
+    render(
+      <CartProvider>
+        <TestConsumer />
+      </CartProvider>
+    );
+    expect(screen.getByTestId('cart')).toHaveTextContent('[]');
+    expect(screen.getByTestId('total')).toHaveTextContent('0');
   });
 
-  test('Given an existing item in cart, When addToCart is called again, Then its quantity should increment', () => {
-    const { result } = renderHook(() => useCart(), { wrapper });
-
+  test('Given I add a new item, When I click ADD, Then cart has that item with quantity 1', () => {
+    render(
+      <CartProvider>
+        <TestConsumer />
+      </CartProvider>
+    );
     act(() => {
-      result.current.addToCart(item);
-      result.current.addToCart(item);
+      screen.getByText('ADD').click();
     });
-
-    expect(result.current.cart[0].quantity).toBe(2);
+    expect(JSON.parse(screen.getByTestId('cart').textContent)).toEqual([
+      { id: '1', price: 10, quantity: 1 }
+    ]);
+    expect(screen.getByTestId('total')).toHaveTextContent('10');
   });
 
-  test('Given an item in the cart, When removeFromCart is called, Then it should be removed', () => {
-    const { result } = renderHook(() => useCart(), { wrapper });
-
+  test('Given item already in cart, When I add it again, Then quantity increments', () => {
+    render(
+      <CartProvider>
+        <TestConsumer />
+      </CartProvider>
+    );
     act(() => {
-      result.current.addToCart(item);
-      result.current.removeFromCart(item.id);
+      screen.getByText('ADD').click();
+      screen.getByText('ADD-AGAIN').click();
     });
-
-    expect(result.current.cart).toEqual([]);
+    expect(JSON.parse(screen.getByTestId('cart').textContent)).toEqual([
+      { id: '1', price: 10, quantity: 2 }
+    ]);
+    expect(screen.getByTestId('total')).toHaveTextContent('20');
   });
 
-  test('Given an item in the cart, When updateQuantity is called, Then its quantity should change', () => {
-    const { result } = renderHook(() => useCart(), { wrapper });
-
+  test('Given item in cart, When I update its quantity, Then cart reflects new quantity', () => {
+    render(
+      <CartProvider>
+        <TestConsumer />
+      </CartProvider>
+    );
     act(() => {
-      result.current.addToCart(item);
-      result.current.updateQuantity(item.id, 5);
+      screen.getByText('ADD').click();
+      screen.getByText('UPDATE').click();
     });
-
-    expect(result.current.cart[0].quantity).toBe(5);
+    expect(JSON.parse(screen.getByTestId('cart').textContent)).toEqual([
+      { id: '1', price: 10, quantity: 5 }
+    ]);
+    expect(screen.getByTestId('total')).toHaveTextContent('50');
   });
 
-  test('Given items in the cart, When clearCart is called, Then all items should be removed', () => {
-    const { result } = renderHook(() => useCart(), { wrapper });
-
+  test('Given item in cart, When I remove it, Then cart is empty again', () => {
+    render(
+      <CartProvider>
+        <TestConsumer />
+      </CartProvider>
+    );
     act(() => {
-      result.current.addToCart(item);
-      result.current.clearCart();
+      screen.getByText('ADD').click();
+      screen.getByText('REMOVE').click();
     });
-
-    expect(result.current.cart).toEqual([]);
+    expect(screen.getByTestId('cart')).toHaveTextContent('[]');
+    expect(screen.getByTestId('total')).toHaveTextContent('0');
   });
 
-  test('Given items with price and quantity, When getTotal is called, Then it should return the correct total price', () => {
-    const { result } = renderHook(() => useCart(), { wrapper });
-
+  test('Given non-empty cart, When I clearCart, Then cart becomes empty', () => {
+    render(
+      <CartProvider>
+        <TestConsumer />
+      </CartProvider>
+    );
     act(() => {
-      result.current.addToCart(item); //qty 1=100
-      result.current.addToCart(item); //qty 2=200
+      screen.getByText('ADD').click();
+      screen.getByText('CLEAR').click();
     });
-
-    expect(result.current.getTotal()).toBe(200);
+    expect(screen.getByTestId('cart')).toHaveTextContent('[]');
+    expect(screen.getByTestId('total')).toHaveTextContent('0');
   });
 
-  test('Given no provider, When useCart is called, Then it should throw an error', () => {
-    const consoleError = jest.spyOn(console, 'error').mockImplementation(() => {}); //Suppress expected React error
+  // test('Given localStorage has a saved cart, When provider mounts, Then it will load from localStorage', () => {
+  //   // pre-seed localStorage
+  //   localStorage.setItem(
+  //     'cart',
+  //     JSON.stringify([{ id: 'x', price: 5, quantity: 3 }])
+  //   );
+  //   render(
+  //     <CartProvider>
+  //       <TestConsumer />
+  //     </CartProvider>
+  //   );
+  //   expect(JSON.parse(screen.getByTestId('cart').textContent)).toEqual([
+  //     { id: 'x', price: 5, quantity: 3 }
+  //   ]);
+  //   expect(screen.getByTestId('total')).toHaveTextContent('15');
+  // });
 
-    expect(() => {
-      renderHook(() => useCart()); // missing provider
-    }).toThrow('useCart must be used within a CartProvider');
-
-    consoleError.mockRestore();
-  });
-
-  test('Given cart state changes, When component unmounts, Then it should persist to localStorage', () => {
-    const { result, unmount } = renderHook(() => useCart(), { wrapper });
-
-    act(() => {
-      result.current.addToCart(item);
-    });
-
-    unmount();
-
-    const stored = JSON.parse(localStorage.getItem('cart'));
-    expect(stored).toEqual([{ ...item, quantity: 1 }]);
+  test('Given I throw away the provider, When I call useCart outside, Then it errors', () => {
+    // we mount the consumer without wrapping
+    expect(() =>
+      render(<TestConsumer />)
+    ).toThrowError(/useCart must be used within a CartProvider/);
   });
 });

@@ -1,48 +1,36 @@
-// // src/utils/exportCSV.test.js
-// import { exportToCSV } from './exportToCSV';
+import { exportToCSV } from './exportCSV';
 
-// describe('exportToCSV', () => {
-//   let createElementSpy, clickSpy, revokeSpy;
+describe('exportToCSV util', () => {
+  beforeEach(() => {
+    jest.spyOn(window, 'alert').mockImplementation(() => {});
+    // spy on createObjectURL
+    URL.createObjectURL = jest.fn(() => 'blob:url');
+    URL.revokeObjectURL = jest.fn();
+    document.createElement = jest.fn((tag) => {
+      if (tag === 'a') {
+        return { href: '', download: '', click: jest.fn() };
+      }
+      return document.createElement(tag);
+    });
+  });
 
-//   beforeEach(() => {
-//     createElementSpy = jest.spyOn(document, 'createElement').mockImplementation(() => ({
-//       set href(value) {},
-//       set download(value) {},
-//       click: jest.fn(),
-//     }));
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
 
-//     clickSpy = jest.fn();
-//     global.URL.createObjectURL = jest.fn(() => 'blob:url');
-//     revokeSpy = jest.spyOn(global.URL, 'revokeObjectURL').mockImplementation(() => {});
-//     jest.spyOn(window, 'alert').mockImplementation(() => {});
-//   });
+  test('Given empty data, When called, Then alerts and does nothing else', () => {
+    exportToCSV([], 'file');
+    expect(window.alert).toHaveBeenCalledWith('No data to export.');
+  });
 
-//   afterEach(() => {
-//     jest.restoreAllMocks();
-//   });
-
-//   test('Given valid data, When exportToCSV is called, Then it should download a CSV file', () => {
-//     const data = [
-//       { name: 'Alice', age: 30 },
-//       { name: 'Bob', age: 25 }
-//     ];
-//     const a = {
-//       click: clickSpy,
-//       set href(_) {},
-//       set download(_) {}
-//     };
-
-//     createElementSpy.mockReturnValue(a);
-
-//     exportToCSV(data, 'testfile');
-//     expect(global.URL.createObjectURL).toHaveBeenCalled();
-//     expect(clickSpy).toHaveBeenCalled();
-//     expect(revokeSpy).toHaveBeenCalledWith('blob:url');
-//   });
-
-//   test('Given empty data, When exportToCSV is called, Then it should alert the user', () => {
-//     exportToCSV([], 'emptyfile');
-//     expect(window.alert).toHaveBeenCalledWith('No data to export.');
-//   });
-// });
-test.todo('Test need to be done');
+  test('Given valid data, When called, Then generates and clicks download link', () => {
+    const data = [{ a: 1, b: 'x' }, { a: 2, b: 'y' }];
+    exportToCSV(data, 'myfile');
+    // headers row + two data rows
+    expect(URL.createObjectURL).toHaveBeenCalled();
+    const aTag = document.createElement.mock.results.find(r => r.value.download).value;
+    expect(aTag.download).toBe('myfile.csv');
+    expect(aTag.click).toHaveBeenCalled();
+    expect(URL.revokeObjectURL).toHaveBeenCalled();
+  });
+});
