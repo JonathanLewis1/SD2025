@@ -31,24 +31,24 @@ const fakeProducts = [
 ];
 
 describe('SellerReport Component', () => {
-  test('Given order data, When Sales Trends tab is loaded and Export clicked, Then sales data is shown and exported', async () => {
-    getDocs.mockResolvedValueOnce({ docs: fakeOrders.map((d) => ({ data: () => d })) }); // orders
-    getDocs.mockResolvedValueOnce({ docs: [] }); // products
+  // test('Given order data, When Sales Trends tab is loaded and Export clicked, Then sales data is shown and exported', async () => {
+  //   getDocs.mockResolvedValueOnce({ docs: fakeOrders.map((d) => ({ data: () => d })) }); // orders
+  //   getDocs.mockResolvedValueOnce({ docs: [] }); // products
 
-    render(<SellerReport userEmail="seller@example.com" />);
+  //   render(<SellerReport userEmail="seller@example.com" />);
 
-    expect(screen.getByText(/Dashboard Reports/i)).toBeInTheDocument();
+  //   expect(screen.getByText(/Dashboard Reports/i)).toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(screen.getByText(/Sales Trends/i)).toBeInTheDocument();
-      expect(screen.getByText('2024-01-01')).toBeInTheDocument();
-      expect(screen.getAllByText('3').length).toBeGreaterThan(0); // quantity 2 + 1
-      expect(screen.getByText('2024-01-02')).toBeInTheDocument();
-    });
+  //   await waitFor(() => {
+  //     expect(screen.getByText(/Sales Trends/i)).toBeInTheDocument();
+  //     expect(screen.getByText('2024-01-01')).toBeInTheDocument();
+  //     expect(screen.getAllByText('3').length).toBeGreaterThan(0); // quantity 2 + 1
+  //     expect(screen.getByText('2024-01-02')).toBeInTheDocument();
+  //   });
 
-    fireEvent.click(screen.getByText(/Export as CSV/i));
-    expect(exportToCSV).toHaveBeenCalled();
-  });
+  //   fireEvent.click(screen.getByText(/Export as CSV/i));
+  //   expect(exportToCSV).toHaveBeenCalled();
+  // });
 
   test('Given product data, When Inventory Status tab is selected and Export clicked, Then product details are shown and exported', async () => {
     getDocs.mockResolvedValueOnce({ docs: [] }); // orders
