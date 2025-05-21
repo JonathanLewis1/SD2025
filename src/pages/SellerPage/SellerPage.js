@@ -12,6 +12,8 @@ import {
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
 import SellerReport from './SellerReport';
+import OrderReport from './OrderReport';
+import { useRef } from 'react';
 
 const SellerPage = () => {
   const [stockEdits, setStockEdits] = useState({});
@@ -95,8 +97,18 @@ const SellerPage = () => {
     }
   };
 
+  const reportRef = useRef(null);
+  const ordersRef = useRef(null);
+
+  const scrollTo = (ref) => {
+    if (ref.current) ref.current.scrollIntoView({ behavior: 'smooth' });
+  };
+
   return (
     <div style={styles.container}>
+      <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
+    <button onClick={() => scrollTo(reportRef)}>Go to Dashboard Reports</button>
+      </div>
       <h1>Add Product</h1>
       <form onSubmit={handleUpload} noValidate style={styles.form}>
         <input placeholder="Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={styles.input} required />
@@ -139,7 +151,8 @@ const SellerPage = () => {
         ))}
       </div>
 
-      {userEmail && <SellerReport userEmail={userEmail} />}
+      {userEmail && <SellerReport ref={reportRef} userEmail={userEmail} />}
+      {userEmail && <OrderReport userEmail={userEmail} />}
     </div>
   );
 };
