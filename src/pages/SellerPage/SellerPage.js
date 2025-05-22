@@ -56,6 +56,9 @@ const SellerPage = () => {
     if (!form.name || !form.price || !form.description || !form.imageUrl || !form.category) {
       return setError('All fields are required.');
     }
+    if (isNaN(form.price) || parseFloat(form.price) <= 0) {
+      return setError('Price must be a positive number.');
+    }
 
     try {
       await addDoc(collection(db, 'products'), {
@@ -79,6 +82,9 @@ const SellerPage = () => {
   };
 
   const updateStock = async (productId, newStock) => {
+    if (isNaN(newStock) || parseInt(newStock) < 0) {
+      return alert('Stock must be a non-negative integer.');
+    }
     try {
       const productRef = doc(db, 'products', productId);
       await updateDoc(productRef, { stock: parseInt(newStock) });
@@ -107,7 +113,7 @@ const SellerPage = () => {
   return (
     <div style={styles.container}>
       <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
-    <button onClick={() => scrollTo(reportRef)}>Go to Dashboard Reports</button>
+    <button onClick={() => scrollTo(reportRef)} style={styles.button}>Go to Dashboard Reports</button>
       </div>
       <h1>Add Product</h1>
       <form onSubmit={handleUpload} noValidate style={styles.form}>
@@ -150,9 +156,12 @@ const SellerPage = () => {
           </div>
         ))}
       </div>
+        <view style={styles.container}>
 
-      {userEmail && <SellerReport ref={reportRef} userEmail={userEmail} />}
+          {userEmail && <SellerReport ref={reportRef} userEmail={userEmail} />}
       {userEmail && <OrderReport userEmail={userEmail} />}
+        </view>
+      
     </div>
   );
 };

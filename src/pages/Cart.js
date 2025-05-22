@@ -13,14 +13,15 @@ const Cart = () => {
   };
 
   const handleCheckout = () => {
-    navigate("/checkout");
+    window.open('/mock-checkout', '_blank', 'width=600,height=700');
+    navigate("/home");
   };
 
   if (cart.length === 0) {
     return (
       <div className="cart-empty">
         <h2>Your cart is empty</h2>
-        <button onClick={() => navigate("/")}>Continue Shopping</button>
+        <button onClick={() => navigate("/home")}>Continue Shopping</button>
       </div>
     );
   }

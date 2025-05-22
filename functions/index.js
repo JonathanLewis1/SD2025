@@ -7,11 +7,11 @@
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
 
-const {onCall} = require("firebase-functions/v2/https");
+const {onCall, HttpsError} = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const functions = require("firebase-functions");
-const stripe = require("stripe")(functions.config().stripe.secret_key);
+//const stripe = require("stripe")(functions.config().stripe.secret_key);
 admin.initializeApp();
 
 const db = admin.firestore();
@@ -26,44 +26,43 @@ const db = admin.firestore();
 
 // Get user role by UID
 exports.getUserRole = onCall({
-  cors: true,
+  cors: ["http://localhost:3000", "https://your-production-domain.com"],
   maxInstances: 10,
 }, async (request) => {
-  logger.info('getUserRole function called', { auth: request.auth });
-  
-  if (!request.auth) {
-    logger.error('No auth context in request');
-    throw new Error('User must be logged in');
-  }
-
-  const uid = request.auth.uid;
-  logger.info('Processing request for user', { uid });
-
   try {
+    if (!request.auth) {
+      logger.error('getUserRole: No auth context in request');
+      throw new HttpsError('unauthenticated', 'User must be logged in');
+    }
+
+    const uid = request.auth.uid;
+    logger.info('getUserRole: Processing request for user', { uid });
+
     const userDoc = await db.collection('users').doc(uid).get();
     if (!userDoc.exists) {
-      logger.error('User document not found', { uid });
-      throw new Error('User profile not found');
+      logger.error('getUserRole: User document not found', { uid });
+      throw new HttpsError('not-found', 'User profile not found');
     }
-    
+
     const userData = userDoc.data();
-    logger.info('User role retrieved successfully', { uid, role: userData.role });
+    logger.info('getUserRole: User role retrieved successfully', { uid, role: userData.role });
     return { role: userData.role };
-  } catch (error) {
-    logger.error('Error in getUserRole function', { error: error.message, uid });
-    throw new Error(error.message);
+  } catch (err) {
+    logger.error('getUserRole: Unexpected error', { message: err.message });
+    throw new HttpsError('internal', err.message || 'Unknown error');
   }
 });
 
+
 exports.registerUserProfile = onCall({
-  cors: true,
+  cors: ["http://localhost:3000", "https://your-production-domain.com"],
   maxInstances: 10,
 }, async (request) => {
   logger.info('registerUserProfile function called', { auth: request.auth });
   
   if (!request.auth) {
     logger.error('No auth context in request');
-    throw new Error('User must be logged in');
+    throw new HttpsError('User must be logged in');
   }
 
   const { firstName, lastName, role, email } = request.data;
@@ -73,7 +72,7 @@ exports.registerUserProfile = onCall({
 
   if (!firstName || !lastName || !role || !email) {
     logger.error('Missing required fields', { firstName, lastName, role, email });
-    throw new Error('Missing required fields');
+    throw new HttpsError('Missing required fields');
   }
 
   try {
@@ -88,7 +87,7 @@ exports.registerUserProfile = onCall({
     return { success: true };
   } catch (error) {
     logger.error('Error registering user profile', { error: error.message, uid });
-    throw new Error(error.message);
+    throw new HttpsError(error.message);
   }
 });
 
@@ -107,14 +106,14 @@ exports.getAllComplaints = onCall({ cors: true }, async (request) => {
 
 exports.banUser = onCall({ cors: true }, async (request) => {
   const { userId, email } = request.data;
-  if (!userId || !email) throw new Error('Missing user ID or email');
+  if (!userId || !email) throw new HttpsError('Missing user ID or email');
 
   try {
     await db.collection('users').doc(userId).update({ banned: true });
     await db.collection('bannedEmails').doc(email).set({ banned: true });
     return { success: true };
   } catch (error) {
-    throw new Error('Failed to ban user: ' + error.message);
+    throw new HttpsError('Failed to ban user: ' + error.message);
   }
 });
 
@@ -123,7 +122,7 @@ exports.submitComplaint = onCall({ cors: true }, async (request) => {
   const { name, email, message } = request.data;
 
   if (!name || !email || !message) {
-    throw new Error('All fields are required');
+    throw new HttpsError('All fields are required');
   }
 
   try {
@@ -135,41 +134,46 @@ exports.submitComplaint = onCall({ cors: true }, async (request) => {
     });
     return { success: true };
   } catch (error) {
-    throw new Error('Failed to submit complaint: ' + error.message);
+    throw new HttpsError('Failed to submit complaint: ' + error.message);
   }
 });
 
 
-exports.isEmailBanned = onCall({ cors: true }, async (request) => {
-  const { email } = request.data;
-  if (!email) throw new Error('Missing email');
-
-  const docRef = db.collection('bannedEmails').doc(email);
-  const docSnap = await docRef.get();
-
-  return { banned: docSnap.exists };
-});
-
-exports.createPaymentIntent = onCall({ cors: true }, async (request) => {
-  if (!request.auth) {
-    throw new Error("User must be logged in");
-  }
-
-  const { amount, paymentMethodId } = request.data;
-
+exports.isEmailBanned = onCall({ cors: ["http://localhost:3000", "https://your-production-domain.com"] }, async (request) => {
   try {
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount,
-      currency: "usd",
-      payment_method: paymentMethodId,
-      confirm: true,
-      return_url: `${request.rawRequest.headers.origin}/payment-success`,
-    });
-
-    return {
-      clientSecret: paymentIntent.client_secret,
-    };
-  } catch (error) {
-    throw new Error(`Payment failed: ${error.message}`);
+    const email = request.data?.email;
+    if (typeof email !== 'string' || email.trim() === '') {
+      logger.error("Missing or invalid email received", { data: request.data });
+      throw new HttpsError('invalid-argument', 'Email is required');
+    }
+    const docRef = db.collection('bannedEmails').doc(email.trim().toLowerCase());
+    const docSnap = await docRef.get();
+    return { banned: docSnap.exists };
+  } catch (err) {
+    logger.error("Fatal error in isEmailBanned", { message: err.message, stack: err.stack });
+    throw new HttpsError('internal', err.message || 'Unexpected failure');
   }
+});
+
+exports.submitMockOrder = onCall({ cors: true }, async (request) => {
+  const { cartItems, buyerEmail, shippingAddress } = request.data;
+
+  if (!cartItems || !buyerEmail || !shippingAddress) {
+    throw new HttpsError("Missing required fields");
+  }
+
+  const orderData = {
+    buyerEmail,
+    shippingAddress,
+    timestamp: Date.now(),
+    products: cartItems.map(item => item.name),
+    quantity: cartItems.map(item => item.quantity),
+    Price: cartItems.map(item => item.price),
+    sellersEmails: cartItems.map(item => item.email),
+    productNames: cartItems.map(item => item.name),
+    DeliveryStatus: "Pending"
+  };
+
+  await admin.firestore().collection("orders").add(orderData);
+  return { success: true };
 });

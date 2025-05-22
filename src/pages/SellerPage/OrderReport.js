@@ -72,11 +72,11 @@ const OrderReport = ({ userEmail }) => {
   );
 
   const renderTable = (data, cols) => (
-    <table border="1" cellPadding="8" style={{ width: '100%', marginTop: 16 }}>
-      <thead><tr>{cols.map(c => <th key={c}>{c}</th>)}</tr></thead>
+    <table border="1" cellPadding="8" style={styles.table}>
+      <thead><tr>{cols.map(c => <th style={styles.headerCell} key={c}>{c}</th>)}</tr></thead>
       <tbody>
         {data.map((row, i) => (
-          <tr key={i}>{cols.map(c => <td key={c}>{row[c.toLowerCase()] ?? row[c]}</td>)}</tr>
+          <tr key={i}>{cols.map(c => <td style={styles.cell} key={c}>{row[c.toLowerCase()] ?? row[c]}</td>)}</tr>
         ))}
       </tbody>
     </table>
@@ -86,7 +86,7 @@ const OrderReport = ({ userEmail }) => {
 
   return (
     <div id="order-report" style={{ marginTop: 32, width: '100%' }}>
-      <h2>Seller Orders Report</h2>
+      <h2 style={styles.heading}>Seller Orders Report</h2>
       <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
         <button onClick={() => setTab('orders')}>Orders</button>
         <button onClick={() => setTab('sales')}>Sales Trends</button>
@@ -112,7 +112,7 @@ const OrderReport = ({ userEmail }) => {
             ? (
               <>
                 {renderTable(sales, ['date','qty'])}
-                <button onClick={() => exportToCSV(sales, `${userEmail}_Sales`)} style={{ marginTop: 8 }}>Export Sales CSV</button>
+                <button style={styles.button}onClick={() => exportToCSV(sales, `${userEmail}_Sales`)} >Export Sales CSV</button>
               </>
             )
             : <p>No sales data.</p>
@@ -128,6 +128,60 @@ const OrderReport = ({ userEmail }) => {
       )}
     </div>
   );
+};
+
+const styles = {
+  container: {
+    backgroundColor: '#feffdf',
+    minHeight: '100vh',
+    padding: 32,
+  },
+  heading: {
+    fontSize: 36,
+    fontWeight: 'bold',
+    marginBottom: 24,
+    color: '#3b82f6',
+    textAlign: 'center'
+  },
+  subheading: {
+    fontSize: 24,
+    fontWeight: '600',
+    color: '#555',
+    marginBottom: 12
+  },
+  panel: {
+    marginBottom: 48,
+    backgroundColor: '#ffffff',
+    padding: 20,
+    borderRadius: 12,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+  },
+  table: {
+    width: '100%',
+    borderCollapse: 'collapse',
+    overflowX: 'auto',
+  },
+  headerCell: {
+    border: '1px solid #ccc',
+    padding: '10px 14px',
+    textAlign: 'left',
+    backgroundColor: '#f0f0f0',
+    fontWeight: '600'
+  },
+  cell: {
+    border: '1px solid #ccc',
+    padding: '10px 14px',
+    textAlign: 'left'
+  },
+  button: {
+    backgroundColor: '#f97316',
+    color: '#ffffff',
+    padding: '8px 12px',
+    border: 'none',
+    borderRadius: 8,
+    cursor: 'pointer',
+    fontWeight: '500'
+  }
 };
 
 export default OrderReport;
