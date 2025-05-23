@@ -1,11 +1,13 @@
 // SellerReport.js
 import React, { useState, useEffect, forwardRef } from 'react';
-import { db } from '../../firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../../firebase';
 import { exportToCSV } from './exportCSV';
 
 const SellerReport = forwardRef(({ userEmail }, ref) => {
   const [inventoryData, setInventoryData] = useState([]);
+  const [error, setError] = useState(null);
 
   useEffect(() => {
     if (userEmail) fetchInventoryData();
@@ -13,27 +15,45 @@ const SellerReport = forwardRef(({ userEmail }, ref) => {
 
   const fetchInventoryData = async () => {
     try {
-      const q = query(collection(db, 'products'), where('email', '==', userEmail));
-      const snapshot = await getDocs(q);
-      setInventoryData(snapshot.docs.map(doc => doc.data()));
+      const getSellerProducts = httpsCallable(functions, 'getSellerProducts');
+      const response = await getSellerProducts({ email: userEmail });
+      setInventoryData(response.data);
+      setError(null);
     } catch (err) {
       console.error('Error fetching inventory:', err.message);
+      setError('Failed to fetch inventory data');
     }
   };
 
   const renderTable = (data, headers) => (
-    <table border="1" cellPadding="8" style={styles.table}>
-      <thead><tr>{headers.map(h => <th style={styles.headerCell} key={h}>{h}</th>)}</tr></thead>
-      <tbody>{data.map((row, i) => (
-        <tr key={i}>{headers.map(h => <td style={styles.cell} key={h}>{row[h]}</td>)}</tr>
-      ))}</tbody>
-    </table>
+    <View style={styles.tableContainer}>
+      <View style={styles.tableHeader}>
+        {headers.map(h => (
+          <Text key={h} style={styles.headerCell}>{h}</Text>
+        ))}
+      </View>
+      {data.map((row, i) => (
+        <View key={i} style={styles.tableRow}>
+          {headers.map(h => (
+            <Text key={h} style={styles.cell}>{row[h]}</Text>
+          ))}
+        </View>
+      ))}
+    </View>
   );
 
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.error}>{error}</Text>
+      </View>
+    );
+  }
+
   return (
-    <div ref={ref} id="seller-report" style={styles.container}>
-      <h2 style={styles.heading}>Dashboard Reports</h2>
-      <h3 style={styles.heading}>Inventory Status</h3>
+    <View ref={ref} style={styles.container}>
+      <Text style={styles.heading}>Dashboard Reports</Text>
+      <Text style={styles.subheading}>Inventory Status</Text>
       {renderTable(
         inventoryData.map(p => ({
           name: p.name,
@@ -43,26 +63,30 @@ const SellerReport = forwardRef(({ userEmail }, ref) => {
         })),
         ['name', 'quantity', 'price', 'description']
       )}
-      <button style={styles.button}onClick={() => exportToCSV(
-        inventoryData.map(p => ({
-          name: p.name,
-          quantity: p.stock,
-          price: p.price,
-          description: p.description,
-          imageUrl: p.image
-        })),
-        `${userEmail}_Inventory`
-      )}>Export as CSV</button>
-    </div>
+      <TouchableOpacity 
+        style={styles.button}
+        onPress={() => exportToCSV(
+          inventoryData.map(p => ({
+            name: p.name,
+            quantity: p.stock,
+            price: p.price,
+            description: p.description,
+            imageUrl: p.image
+          })),
+          `${userEmail}_Inventory`
+        )}
+      >
+        <Text style={styles.buttonText}>Export as CSV</Text>
+      </TouchableOpacity>
+    </View>
   );
 });
 
-const styles = {
+const styles = StyleSheet.create({
   container: {
     backgroundColor: '#feffdf',
-    minHeight: '100vh',
     padding: 32,
-    textAlign: 'center',
+    alignItems: 'center',
   },
   heading: {
     fontSize: 36,
@@ -77,39 +101,48 @@ const styles = {
     color: '#555',
     marginBottom: 12
   },
-  panel: {
-    marginBottom: 48,
-    backgroundColor: '#ffffff',
-    padding: 20,
-    borderRadius: 12,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-  },
-  table: {
+  tableContainer: {
     width: '100%',
-    borderCollapse: 'collapse',
-    overflowX: 'auto',
+    marginBottom: 20,
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#f0f0f0',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
   },
   headerCell: {
-    border: '1px solid #ccc',
-    padding: '10px 14px',
+    flex: 1,
+    padding: 10,
+    fontWeight: '600',
     textAlign: 'left',
-    backgroundColor: '#f0f0f0',
-    fontWeight: '600'
   },
   cell: {
-    border: '1px solid #ccc',
-    padding: '10px 14px',
-    textAlign: 'left'
+    flex: 1,
+    padding: 10,
+    textAlign: 'left',
   },
   button: {
     backgroundColor: '#f97316',
-    color: '#ffffff',
-    padding: '8px 12px',
-    border: 'none',
+    padding: 12,
     borderRadius: 8,
-    cursor: 'pointer',
-    fontWeight: '500'
+    marginTop: 16,
+  },
+  buttonText: {
+    color: '#ffffff',
+    fontWeight: '500',
+    textAlign: 'center',
+  },
+  error: {
+    color: 'red',
+    marginTop: 32,
+    textAlign: 'center',
   }
-};
+});
 
 export default SellerReport;

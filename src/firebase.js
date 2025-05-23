@@ -16,14 +16,12 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const functions = getFunctions(app, 'us-central1');
-
-if (window.location.hostname === "localhost") {
-  connectFunctionsEmulator(functions, "localhost", 5001);
-}
-
+const functions = getFunctions(app, "us-central1");
 const db = getFirestore(app);
 const storage = getStorage(app);
+
+// For debugging in browser console
+window.__FIREBASE_AUTH__ = auth;
 
 export { auth, db, storage, functions };
 

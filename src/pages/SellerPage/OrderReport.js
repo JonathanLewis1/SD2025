@@ -1,7 +1,8 @@
 // OrderReport.js
 import React, { useEffect, useState } from 'react';
-import { db } from '../../firebase';
-import { collection, query, where, getDocs } from 'firebase/firestore';
+import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../../firebase';
 import { exportToCSV } from './exportCSV';
 
 const OrderReport = ({ userEmail }) => {
@@ -18,19 +19,18 @@ const OrderReport = ({ userEmail }) => {
 
   const loadOrders = async () => {
     try {
-      // Fetch all orders and filter client-side to avoid permission issues on query
-      const snap = await getDocs(collection(db, 'orders'));
+      const getSellerOrders = httpsCallable(functions, 'getSellerOrders');
+      const response = await getSellerOrders({ email: userEmail });
       const items = [];
       const daily = {};
 
-      snap.docs.forEach(docSnap => {
-        const d = docSnap.data();
-        const { products, quantity, Price, sellersEmails, timestamp, DeliveryStatus } = d;
+      response.data.forEach(order => {
+        const { products, quantity, Price, sellersEmails, timestamp, DeliveryStatus } = order;
         sellersEmails.forEach((email, i) => {
           if (email === userEmail) {
             const orderItem = {
-              id: `${docSnap.id}-${i}`,
-              product: d.productNames?.[i] || products[i],
+              id: `${order.id}-${i}`,
+              product: order.productNames?.[i] || products[i],
               quantity: quantity[i],
               price: Price[i],
               status: DeliveryStatus,
@@ -48,7 +48,7 @@ const OrderReport = ({ userEmail }) => {
       setError(null);
     } catch (err) {
       console.error('Error fetching orders:', err);
-      setError('Unable to load orders. Check your Firestore rules and authentication.');
+      setError('Unable to load orders. Please try again later.');
     }
   };
 
@@ -58,130 +58,245 @@ const OrderReport = ({ userEmail }) => {
   };
 
   const renderCards = items => (
-    <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))' }}>
+    <View style={styles.cardsContainer}>
       {items.map(o => (
-        <div key={o.id} style={{ border: '1px solid #ccc', borderRadius: 8, padding: 16, background: '#fff' }}>
-          <h4>{o.product}</h4>
-          <p><strong>Qty:</strong> {o.quantity}</p>
-          <p><strong>Price:</strong> R{o.price}</p>
-          <p><strong>Status:</strong> {o.status}</p>
-          <p><strong>Date:</strong> {o.date}</p>
-        </div>
+        <View key={o.id} style={styles.card}>
+          <Text style={styles.cardTitle}>{o.product}</Text>
+          <Text style={styles.cardText}><Text style={styles.bold}>Qty:</Text> {o.quantity}</Text>
+          <Text style={styles.cardText}><Text style={styles.bold}>Price:</Text> R{o.price}</Text>
+          <Text style={styles.cardText}><Text style={styles.bold}>Status:</Text> {o.status}</Text>
+          <Text style={styles.cardText}><Text style={styles.bold}>Date:</Text> {o.date}</Text>
+        </View>
       ))}
-    </div>
+    </View>
   );
 
   const renderTable = (data, cols) => (
-    <table border="1" cellPadding="8" style={styles.table}>
-      <thead><tr>{cols.map(c => <th style={styles.headerCell} key={c}>{c}</th>)}</tr></thead>
-      <tbody>
-        {data.map((row, i) => (
-          <tr key={i}>{cols.map(c => <td style={styles.cell} key={c}>{row[c.toLowerCase()] ?? row[c]}</td>)}</tr>
+    <View style={styles.tableContainer}>
+      <View style={styles.tableHeader}>
+        {cols.map(c => (
+          <Text key={c} style={styles.headerCell}>{c}</Text>
         ))}
-      </tbody>
-    </table>
+      </View>
+      {data.map((row, i) => (
+        <View key={i} style={styles.tableRow}>
+          {cols.map(c => (
+            <Text key={c} style={styles.cell}>{row[c.toLowerCase()] ?? row[c]}</Text>
+          ))}
+        </View>
+      ))}
+    </View>
   );
 
-  if (error) return <p style={{ color: 'red', marginTop: 32 }}>{error}</p>;
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.error}>{error}</Text>
+      </View>
+    );
+  }
 
   return (
-    <div id="order-report" style={{ marginTop: 32, width: '100%' }}>
-      <h2 style={styles.heading}>Seller Orders Report</h2>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <button onClick={() => setTab('orders')}>Orders</button>
-        <button onClick={() => setTab('sales')}>Sales Trends</button>
-        <button onClick={() => setTab('custom')}>Custom View</button>
-      </div>
+    <ScrollView style={styles.container}>
+      <Text style={styles.heading}>Seller Orders Report</Text>
+      <View style={styles.tabContainer}>
+        <TouchableOpacity 
+          style={[styles.tabButton, tab === 'orders' && styles.activeTab]}
+          onPress={() => setTab('orders')}
+        >
+          <Text style={styles.tabButtonText}>Orders</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tabButton, tab === 'sales' && styles.activeTab]}
+          onPress={() => setTab('sales')}
+        >
+          <Text style={styles.tabButtonText}>Sales Trends</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.tabButton, tab === 'custom' && styles.activeTab]}
+          onPress={() => setTab('custom')}
+        >
+          <Text style={styles.tabButtonText}>Custom View</Text>
+        </TouchableOpacity>
+      </View>
 
       {tab === 'orders' && (
-        <>
-          <div style={{ marginBottom: 8 }}>
-            {['All','Pending','Delivered','Cancelled'].map(s => (
-              <button key={s} onClick={() => applyFilter(s)} style={{ marginRight: 8 }}>{s}</button>
+        <View>
+          <View style={styles.filterContainer}>
+            {['All', 'Pending', 'Delivered', 'Cancelled'].map(s => (
+              <TouchableOpacity
+                key={s}
+                style={[styles.filterButton, statusFilter === s && styles.activeFilter]}
+                onPress={() => applyFilter(s)}
+              >
+                <Text style={styles.filterButtonText}>{s}</Text>
+              </TouchableOpacity>
             ))}
-            <button onClick={() => exportToCSV(filtered, `${userEmail}_Orders`)}>Export Orders CSV</button>
-          </div>
-          {filtered.length ? renderCards(filtered) : <p>No orders to display.</p>}
-        </>
+            <TouchableOpacity
+              style={styles.exportButton}
+              onPress={() => exportToCSV(filtered, `${userEmail}_Orders`)}
+            >
+              <Text style={styles.exportButtonText}>Export Orders CSV</Text>
+            </TouchableOpacity>
+          </View>
+          {filtered.length ? renderCards(filtered) : <Text style={styles.noData}>No orders to display.</Text>}
+        </View>
       )}
 
       {tab === 'sales' && (
-        <div>
-          <h3>Sales Trends (by day)</h3>
-          {sales.length
-            ? (
-              <>
-                {renderTable(sales, ['date','qty'])}
-                <button style={styles.button}onClick={() => exportToCSV(sales, `${userEmail}_Sales`)} >Export Sales CSV</button>
-              </>
-            )
-            : <p>No sales data.</p>
-          }
-        </div>
+        <View>
+          <Text style={styles.subheading}>Sales Trends (by day)</Text>
+          {sales.length ? (
+            <>
+              {renderTable(sales, ['date', 'qty'])}
+              <TouchableOpacity
+                style={styles.exportButton}
+                onPress={() => exportToCSV(sales, `${userEmail}_Sales`)}
+              >
+                <Text style={styles.exportButtonText}>Export Sales CSV</Text>
+              </TouchableOpacity>
+            </>
+          ) : (
+            <Text style={styles.noData}>No sales data.</Text>
+          )}
+        </View>
       )}
 
       {tab === 'custom' && (
-        <div>
-          <h3>Custom View</h3>
-          <p>Coming soon: add date‐range or product filters here.</p>
-        </div>
+        <View>
+          <Text style={styles.subheading}>Custom View</Text>
+          <Text style={styles.noData}>Coming soon: add date‐range or product filters here.</Text>
+        </View>
       )}
-    </div>
+    </ScrollView>
   );
 };
 
-const styles = {
+const styles = StyleSheet.create({
   container: {
+    flex: 1,
     backgroundColor: '#feffdf',
-    minHeight: '100vh',
-    padding: 32,
+    padding: 16,
   },
   heading: {
-    fontSize: 36,
+    fontSize: 24,
     fontWeight: 'bold',
-    marginBottom: 24,
+    marginBottom: 16,
     color: '#3b82f6',
-    textAlign: 'center'
+    textAlign: 'center',
   },
   subheading: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '600',
     color: '#555',
-    marginBottom: 12
+    marginBottom: 12,
   },
-  panel: {
-    marginBottom: 48,
+  tabContainer: {
+    flexDirection: 'row',
+    marginBottom: 16,
+    justifyContent: 'center',
+  },
+  tabButton: {
+    padding: 8,
+    marginHorizontal: 4,
+    borderRadius: 4,
+    backgroundColor: '#f0f0f0',
+  },
+  activeTab: {
+    backgroundColor: '#3b82f6',
+  },
+  tabButtonText: {
+    color: '#333',
+    fontWeight: '500',
+  },
+  filterContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginBottom: 16,
+    gap: 8,
+  },
+  filterButton: {
+    padding: 8,
+    borderRadius: 4,
+    backgroundColor: '#f0f0f0',
+  },
+  activeFilter: {
+    backgroundColor: '#3b82f6',
+  },
+  filterButtonText: {
+    color: '#333',
+  },
+  exportButton: {
+    backgroundColor: '#f97316',
+    padding: 8,
+    borderRadius: 4,
+    marginLeft: 'auto',
+  },
+  exportButtonText: {
+    color: '#ffffff',
+    fontWeight: '500',
+  },
+  cardsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 16,
+    justifyContent: 'center',
+  },
+  card: {
     backgroundColor: '#ffffff',
-    padding: 20,
-    borderRadius: 12,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+    padding: 16,
+    borderRadius: 8,
+    width: '45%',
+    borderWidth: 1,
+    borderColor: '#ccc',
   },
-  table: {
+  cardTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  cardText: {
+    marginBottom: 4,
+  },
+  bold: {
+    fontWeight: '600',
+  },
+  tableContainer: {
     width: '100%',
-    borderCollapse: 'collapse',
-    overflowX: 'auto',
+    marginBottom: 16,
+  },
+  tableHeader: {
+    flexDirection: 'row',
+    backgroundColor: '#f0f0f0',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
+  },
+  tableRow: {
+    flexDirection: 'row',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ccc',
   },
   headerCell: {
-    border: '1px solid #ccc',
-    padding: '10px 14px',
+    flex: 1,
+    padding: 10,
+    fontWeight: '600',
     textAlign: 'left',
-    backgroundColor: '#f0f0f0',
-    fontWeight: '600'
   },
   cell: {
-    border: '1px solid #ccc',
-    padding: '10px 14px',
-    textAlign: 'left'
+    flex: 1,
+    padding: 10,
+    textAlign: 'left',
   },
-  button: {
-    backgroundColor: '#f97316',
-    color: '#ffffff',
-    padding: '8px 12px',
-    border: 'none',
-    borderRadius: 8,
-    cursor: 'pointer',
-    fontWeight: '500'
-  }
-};
+  noData: {
+    textAlign: 'center',
+    color: '#666',
+    marginTop: 16,
+  },
+  error: {
+    color: 'red',
+    textAlign: 'center',
+    marginTop: 32,
+  },
+});
 
 export default OrderReport;

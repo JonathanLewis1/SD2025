@@ -1,16 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { db, auth } from '../../firebase';
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  addDoc,
-  deleteDoc,
-  doc,
-  updateDoc
-} from 'firebase/firestore';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { auth } from '../../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../../firebase';
 import SellerReport from './SellerReport';
 import OrderReport from './OrderReport';
 import { useRef } from 'react';
@@ -40,35 +33,40 @@ const SellerPage = () => {
 
   const fetchProducts = async (email) => {
     try {
-      const q = query(collection(db, 'products'), where('email', '==', email));
-      const snapshot = await getDocs(q);
-      const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setProducts(items);
+      const getSellerProducts = httpsCallable(functions, 'getSellerProducts');
+      const response = await getSellerProducts({ email });
+      setProducts(response.data);
     } catch (err) {
       console.error('Error fetching products:', err.message);
+      setError('Failed to fetch products');
     }
   };
 
   const handleUpload = async (e) => {
     e.preventDefault();
 
-    if (!userEmail) return setError('You must be logged in to add a product.');
+    if (!userEmail) {
+      setError('You must be logged in to add a product.');
+      return;
+    }
     if (!form.name || !form.price || !form.description || !form.imageUrl || !form.category) {
-      return setError('All fields are required.');
+      setError('All fields are required.');
+      return;
     }
     if (isNaN(form.price) || parseFloat(form.price) <= 0) {
-      return setError('Price must be a positive number.');
+      setError('Price must be a positive number.');
+      return;
     }
 
     try {
-      await addDoc(collection(db, 'products'), {
+      const addProduct = httpsCallable(functions, 'addProduct');
+      await addProduct({
         name: form.name,
         price: parseFloat(form.price),
         description: form.description,
         image: form.imageUrl,
         category: form.category,
         email: userEmail,
-        dateAdded: new Date().toISOString(),
         stock: 1
       });
 
@@ -77,29 +75,33 @@ const SellerPage = () => {
       fetchProducts(userEmail);
     } catch (error) {
       console.error("Error adding product:", error.message);
-      alert("Failed to add product: " + error.message);
+      setError("Failed to add product: " + error.message);
     }
   };
 
   const updateStock = async (productId, newStock) => {
     if (isNaN(newStock) || parseInt(newStock) < 0) {
-      return alert('Stock must be a non-negative integer.');
+      setError('Stock must be a non-negative integer.');
+      return;
     }
     try {
-      const productRef = doc(db, 'products', productId);
-      await updateDoc(productRef, { stock: parseInt(newStock) });
+      const updateProductStock = httpsCallable(functions, 'updateProductStock');
+      await updateProductStock({ productId, stock: parseInt(newStock) });
       if (userEmail) fetchProducts(userEmail);
     } catch (error) {
       console.error('Error updating stock:', error.message);
+      setError('Failed to update stock');
     }
   };
 
   const deleteProduct = async (productId) => {
     try {
-      await deleteDoc(doc(db, 'products', productId));
+      const deleteProductFn = httpsCallable(functions, 'deleteProduct');
+      await deleteProductFn({ productId });
       if (userEmail) fetchProducts(userEmail);
     } catch (error) {
       console.error("Error deleting product:", error.message);
+      setError('Failed to delete product');
     }
   };
 
@@ -111,121 +113,189 @@ const SellerPage = () => {
   };
 
   return (
-    <div style={styles.container}>
-      <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
-    <button onClick={() => scrollTo(reportRef)} style={styles.button}>Go to Dashboard Reports</button>
-      </div>
-      <h1>Add Product</h1>
-      <form onSubmit={handleUpload} noValidate style={styles.form}>
-        <input placeholder="Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={styles.input} required />
-        <input type="number" placeholder="Price" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} style={styles.input} required />
-        <textarea placeholder="Description" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} style={styles.input} required />
-        <input type="text" placeholder="Image URL" value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} style={styles.input} required />
-        <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} style={styles.input} required>
-          <option value="">Select a Category</option>
-          <option value="Jewelry">Jewelry</option>
-          <option value="Clothing">Clothing</option>
-          <option value="Home Decor">Home Decor</option>
-          <option value="Woodwork">Woodwork</option>
-        </select>
-        <button type="submit" style={styles.button}>Add Product</button>
-      </form>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+    <ScrollView style={styles.container}>
+      <View style={styles.section}>
+        <Text style={styles.title}>Add New Product</Text>
+        {error && <Text style={styles.error}>{error}</Text>}
+        <View style={styles.form}>
+          <TextInput
+            style={styles.input}
+            placeholder="Product Name"
+            value={form.name}
+            onChangeText={(text) => setForm({ ...form, name: text })}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Price"
+            value={form.price}
+            onChangeText={(text) => setForm({ ...form, price: text })}
+            keyboardType="numeric"
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Description"
+            value={form.description}
+            onChangeText={(text) => setForm({ ...form, description: text })}
+            multiline
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Image URL"
+            value={form.imageUrl}
+            onChangeText={(text) => setForm({ ...form, imageUrl: text })}
+          />
+          <TextInput
+            style={styles.input}
+            placeholder="Category"
+            value={form.category}
+            onChangeText={(text) => setForm({ ...form, category: text })}
+          />
+          <TouchableOpacity style={styles.button} onPress={handleUpload}>
+            <Text style={styles.buttonText}>Add Product</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
-      <h1>My Products</h1>
-      <div style={styles.productGrid}>
-        {products.map(prod => (
-          <div key={prod.id} style={styles.card}>
-            <img src={prod.image} alt={prod.name} width={150} />
-            <h3>{prod.name}</h3>
-            <p>Price: R{prod.price}</p>
-            <p>{prod.description}</p>
-            <p>Category: {prod.category}</p>
-            <p>
-              Stock:{' '}
-              <input
-                type="number"
-                min="0"
-                value={stockEdits[prod.id] ?? prod.stock}
-                onChange={(e) => setStockEdits({ ...stockEdits, [prod.id]: e.target.value })}
-                style={{ width: 60 }}
+      <View style={styles.section}>
+        <Text style={styles.title}>Your Products</Text>
+        {products.map((product) => (
+          <View key={product.id} style={styles.productCard}>
+            <Text style={styles.productName}>{product.name}</Text>
+            <Text style={styles.productPrice}>${product.price}</Text>
+            <Text style={styles.productDescription}>{product.description}</Text>
+            <View style={styles.stockContainer}>
+              <TextInput
+                style={styles.stockInput}
+                value={stockEdits[product.id]?.toString() || product.stock.toString()}
+                onChangeText={(text) => setStockEdits({ ...stockEdits, [product.id]: text })}
+                keyboardType="numeric"
               />
-              <button onClick={() => updateStock(prod.id, stockEdits[prod.id] ?? prod.stock)} style={styles.button2}>Save</button>
-            </p>
-            <button onClick={() => deleteProduct(prod.id)} style={styles.button}>Delete</button>
-          </div>
+              <TouchableOpacity
+                style={styles.stockButton}
+                onPress={() => updateStock(product.id, stockEdits[product.id])}
+              >
+                <Text style={styles.buttonText}>Update Stock</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity
+              style={styles.deleteButton}
+              onPress={() => deleteProduct(product.id)}
+            >
+              <Text style={styles.deleteButtonText}>Delete</Text>
+            </TouchableOpacity>
+          </View>
         ))}
-      </div>
-        <view style={styles.container}>
+      </View>
 
-          {userEmail && <SellerReport ref={reportRef} userEmail={userEmail} />}
-      {userEmail && <OrderReport userEmail={userEmail} />}
-        </view>
-      
-    </div>
+      <View style={styles.section} ref={reportRef}>
+        <SellerReport userEmail={userEmail} />
+      </View>
+
+      <View style={styles.section} ref={ordersRef}>
+        <OrderReport userEmail={userEmail} />
+      </View>
+    </ScrollView>
   );
 };
 
-const styles = {
-  card: {
-    border: '1px solid #ccc',
-    borderRadius: 10,
-    padding: 16,
-    cursor: 'pointer',
-    width: 200,
-    backgroundColor: '#f9f9f9',
-  },
+const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#feffdf',
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    flexDirection: 'column',
-    padding: 32,
+    flex: 1,
+    padding: 16,
+    backgroundColor: '#f5f5f5',
+  },
+  section: {
+    marginBottom: 24,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    marginBottom: 16,
+    color: '#333',
   },
   form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 16,
+    gap: 12,
   },
   input: {
-    backgroundColor: '#ffffff',
-    padding: '12px 16px',
-    borderRadius: 24,
-    border: '1px solid #2a2a2a',
-    fontSize: 14,
-    outline: 'none',
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 4,
+    padding: 12,
+    fontSize: 16,
   },
   button: {
-    backgroundColor: '#3b82f6',
-    color: '#ffffff',
-    padding: '12px 16px',
-    border: 'none',
-    borderRadius: 12,
-    fontWeight: 500,
+    backgroundColor: '#28a745',
+    padding: 12,
+    borderRadius: 4,
+    alignItems: 'center',
+  },
+  buttonText: {
+    color: 'white',
     fontSize: 16,
-    cursor: 'pointer',
-    marginTop: 8,
+    fontWeight: 'bold',
   },
-  button2: {
-    backgroundColor: '#3b82f6',
-    color: '#ffffff',
-    padding: '8px 10px',
-    border: 'none',
-    borderRadius: 12,
-    fontWeight: 500,
+  error: {
+    color: '#dc3545',
+    marginBottom: 12,
+  },
+  productCard: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 8,
+    padding: 16,
+    marginBottom: 16,
+  },
+  productName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 8,
+  },
+  productPrice: {
     fontSize: 16,
-    cursor: 'pointer',
-    marginTop: 8,
-    marginLeft: 8,
+    color: '#28a745',
+    marginBottom: 8,
   },
-  productGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: 16,
-    width: '100%',
-    maxWidth: 1000,
+  productDescription: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 12,
   },
-};
+  stockContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  stockInput: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 4,
+    padding: 8,
+  },
+  stockButton: {
+    backgroundColor: '#007bff',
+    padding: 8,
+    borderRadius: 4,
+  },
+  deleteButton: {
+    backgroundColor: '#dc3545',
+    padding: 8,
+    borderRadius: 4,
+    alignItems: 'center',
+  },
+  deleteButtonText: {
+    color: 'white',
+    fontSize: 14,
+  },
+});
 
 export default SellerPage;

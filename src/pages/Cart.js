@@ -13,8 +13,7 @@ const Cart = () => {
   };
 
   const handleCheckout = () => {
-    window.open('/mock-checkout', '_blank', 'width=600,height=700');
-    navigate("/home");
+    navigate("/mock-checkout");
   };
 
   if (cart.length === 0) {

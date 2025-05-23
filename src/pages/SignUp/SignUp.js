@@ -43,13 +43,19 @@ const SignUp = () => {
 
     try {
       // Create user in Firebase Authentication
-      const checkBanned = httpsCallable(functions, 'isEmailBanned');
-      const banCheck = await checkBanned({ email });
-      if (banCheck.data.banned) {
+      const banCheckResponse = await fetch('https://us-central1-sd2025law.cloudfunctions.net/isEmailBanned', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email })
+      });
+      
+      const banCheck = await banCheckResponse.json();
+      if (banCheck.isBanned) {
         setError('This email has been banned. You cannot sign up.');
         return;
       }
-
 
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
@@ -70,19 +76,40 @@ const SignUp = () => {
       // Send verification email
       await sendEmailVerification(user);
 
-      // Call the registerUserProfile function only after successful user creation
-      const registerUserProfile = httpsCallable(functions, 'registerUserProfile');
-      await registerUserProfile({
-        uid: user.uid,
-        firstName,
-        lastName,
-        role,
-        email,
-      });
+      try {
+        // Get the ID token for authentication
+        const idToken = await user.getIdToken();
+        
+        // Call the registerUserProfile function only after successful user creation
+        const response = await fetch('https://us-central1-sd2025law.cloudfunctions.net/registerUserProfile', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${idToken}`
+          },
+          body: JSON.stringify({
+            email,
+            role,
+            firstName,
+            lastName
+          })
+        });
 
-      console.log('Navigating to login page after successful sign-up');
-      navigate('/login');
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'Failed to register user profile');
+        }
+
+        const result = await response.json();
+        console.log('User profile registration result:', result);
+        console.log('Navigating to login page after successful sign-up');
+        navigate('/login');
+      } catch (profileError) {
+        console.error('Error registering user profile:', profileError);
+        setError('Failed to register user profile. Please try again.');
+      }
     } catch (err) {
+      console.error('Signup error:', err);
       setError(err.message);
     }
   };

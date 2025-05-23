@@ -1,12 +1,17 @@
 import React, { useState } from 'react';
 import { useCart } from '../context/CartContext';
-import { PayPalButtons } from "@paypal/react-paypal-js";
 import { useNavigate } from 'react-router-dom';
+import { httpsCallable } from 'firebase/functions';
+import { functions, auth } from '../firebase';
 
 const Checkout = () => {
   const { cart, clearCart } = useCart();
   const navigate = useNavigate();
   const [error, setError] = useState(null);
+  const [card, setCard] = useState("");
+  const [cvc, setCvc] = useState("");
+  const [exp, setExp] = useState("");
+  const [address, setAddress] = useState("");
 
   const total = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
 
@@ -24,60 +29,34 @@ const Checkout = () => {
     );
   }
 
-  const createOrder = (data, actions) => {
-    // Format total to 2 decimal places
-    const formattedTotal = total.toFixed(2);
-    
-    return actions.order.create({
-      purchase_units: [
-        {
-          amount: {
-            currency_code: "USD",
-            value: formattedTotal,
-            breakdown: {
-              item_total: {
-                currency_code: "USD",
-                value: formattedTotal
-              }
-            }
-          },
-          description: "Purchase from SD2025",
-          custom_id: `ORDER-${Date.now()}`,
-          soft_descriptor: "SD2025 Store"
-        },
-      ],
-      application_context: {
-        brand_name: "SD2025",
-        landing_page: "NO_PREFERENCE",
-        user_action: "PAY_NOW",
-        return_url: window.location.origin + "/payment-success",
-        cancel_url: window.location.origin + "/checkout",
-        shipping_preference: "NO_SHIPPING"
-      }
-    });
-  };
+  const validateAndSubmit = async () => {
+    if (!/^[0-9]{16}$/.test(card)) return setError("Card number must be 16 digits.");
+    if (!/^[0-9]{3}$/.test(cvc)) return setError("CVC must be 3 digits.");
+    const today = new Date();
+    const [mm, yy] = exp.split("/").map(x => parseInt(x));
+    if (!mm || !yy || mm < 1 || mm > 12 || yy < today.getFullYear() % 100 || (yy === today.getFullYear() % 100 && mm < today.getMonth() + 1)) {
+      return setError("Invalid or expired date.");
+    }
+    if (!address.trim()) return setError("Shipping address is required.");
 
-  const onApprove = async (data, actions) => {
     try {
-      const order = await actions.order.capture();
-      console.log("Payment successful!", order);
+      const submitMockOrder = httpsCallable(functions, 'submitMockOrder');
+      const user = auth.currentUser;
+      if (!user) return setError("You must be logged in.");
+
+      await submitMockOrder({
+        cartItems: cart,
+        buyerEmail: user.email,
+        shippingAddress: address
+      });
+
       clearCart();
       navigate('/home');
       alert("Payment successful! Thank you for your purchase.");
     } catch (err) {
-      console.error("Payment capture failed:", err);
-      setError(`Payment capture failed: ${err.message || 'Please try again.'}`);
+      console.error("Payment failed:", err);
+      setError(`Payment failed: ${err.message || 'Please try again.'}`);
     }
-  };
-
-  const onError = (err) => {
-    console.error("Payment failed:", err);
-    setError(`Payment failed: ${err.message || 'Please try again.'}`);
-  };
-
-  const onCancel = () => {
-    console.log("Payment cancelled");
-    setError("Payment was cancelled. Please try again if you wish to complete your purchase.");
   };
 
   return (
@@ -101,21 +80,37 @@ const Checkout = () => {
       <div style={styles.payment}>
         <h2 style={styles.subtitle}>Payment</h2>
         {error && <div style={styles.error}>{error}</div>}
-        <div style={styles.paypalButton}>
-          <PayPalButtons
-            createOrder={createOrder}
-            onApprove={onApprove}
-            onError={onError}
-            onCancel={onCancel}
-            style={{
-              layout: "vertical",
-              color: "blue",
-              shape: "rect",
-              label: "pay",
-              height: 55
-            }}
-            forceReRender={[total]}
+        <div style={styles.form}>
+          <input 
+            placeholder="Card Number" 
+            value={card} 
+            onChange={e => setCard(e.target.value)}
+            style={styles.input}
           />
+          <input 
+            placeholder="CVC" 
+            value={cvc} 
+            onChange={e => setCvc(e.target.value)}
+            style={styles.input}
+          />
+          <input 
+            placeholder="Exp MM/YY" 
+            value={exp} 
+            onChange={e => setExp(e.target.value)}
+            style={styles.input}
+          />
+          <input 
+            placeholder="Shipping Address" 
+            value={address} 
+            onChange={e => setAddress(e.target.value)}
+            style={styles.input}
+          />
+          <button 
+            onClick={validateAndSubmit}
+            style={styles.submitButton}
+          >
+            Submit Order
+          </button>
         </div>
       </div>
     </div>
@@ -166,9 +161,25 @@ const styles = {
     backgroundColor: '#f8f9fa',
     borderRadius: '8px',
   },
-  paypalButton: {
-    maxWidth: '500px',
-    margin: '0 auto',
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '15px',
+  },
+  input: {
+    padding: '10px',
+    borderRadius: '4px',
+    border: '1px solid #ddd',
+    fontSize: '16px',
+  },
+  submitButton: {
+    padding: '12px',
+    backgroundColor: '#28a745',
+    color: 'white',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '16px',
   },
   error: {
     color: '#dc3545',

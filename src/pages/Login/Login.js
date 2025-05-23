@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } from 'firebase/auth';
 import { auth } from '../../firebase';
-import { httpsCallable } from 'firebase/functions';
-import { functions } from '../../firebase';
 import { useNavigate, Link } from 'react-router-dom';
 import '../../App.css';
 import { setPersistence, browserSessionPersistence } from 'firebase/auth';
+import { doc } from 'firebase/firestore';
+import { db } from '../../firebase';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -19,6 +19,11 @@ const Login = () => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       if (user) {
         console.log('Auth state changed - User is signed in:', user.uid);
+        // Check if we're already on the login page
+        if (window.location.pathname === '/login') {
+          // Get user role and navigate
+          handleNavigation(user);
+        }
       } else {
         console.log('Auth state changed - User is signed out');
       }
@@ -27,124 +32,93 @@ const Login = () => {
     return () => unsubscribe();
   }, []);
 
+  const handleNavigation = async (user) => {
+    try {
+      const token = await user.getIdToken(true);
+      const response = await fetch(
+        "https://us-central1-sd2025law.cloudfunctions.net/getUserRole",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ email: user.email }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to get user role");
+      }
+
+      const userData = await response.json();
+      console.log("User data for navigation:", userData);
+
+      if (userData.role === "admin") {
+        navigate("/admin", { replace: true });
+      } else if (userData.role === "seller") {
+        navigate("/sellerpage", { replace: true });
+      } else if (userData.role === "buyer") {
+        navigate("/home", { replace: true });
+      } else {
+        console.log("Unknown role, defaulting to home page");
+        navigate("/home", { replace: true });
+      }
+    } catch (error) {
+      console.error("Navigation error:", error);
+      setError(error.message);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setError('');
-    setResetMessage('');
+    setError("");
     setIsLoading(true);
-  
-    if (!email || !password) {
-      setError('Email and password are required.');
-      setIsLoading(false);
-      return;
-    }
-  
-    try {
-      // Set persistence first
-      await setPersistence(auth, browserSessionPersistence);
-      console.log('Persistence set to session');
 
-      // Sign in user
+    try {
       const userCredential = await signInWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
-      console.log('User signed in:', user.uid);
+      console.log("User signed in:", user.uid);
 
-      if (!user.emailVerified) {
-        setError('Please verify your email before logging in.');
-        await signOut(auth);
-        setIsLoading(false);
-        return;
-      }
-
-      // Force refresh token
+      // Get a fresh token
       const token = await user.getIdToken(true);
-      console.log('Token refreshed');
-      
-      if (!token) {
-        setError('Failed to get authentication token. Please try again.');
-        setIsLoading(false);
-        return;
+      console.log("Token refreshed");
+
+      // Call getUserRole function with the token
+      const response = await fetch(
+        "https://us-central1-sd2025law.cloudfunctions.net/getUserRole",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ email: user.email }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to get user role");
       }
 
-      // Wait for auth state to be fully established
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const userData = await response.json();
+      console.log("User data:", userData);
 
-      try {
-        // Ensure we're still authenticated
-        const currentUser = auth.currentUser;
-        if (!currentUser) {
-          throw new Error('User authentication lost');
-        }
-
-        // Get a fresh token right before the call
-        const freshToken = await currentUser.getIdToken(true);
-        console.log('Fresh token obtained for cloud function call');
-
-        /*const checkBanned = httpsCallable(functions, 'isEmailBanned');
-        const banCheck = await checkBanned({ email });
-        if (banCheck.data.banned) {
-          setError('Your account has been banned.');
-          await signOut(auth);
-          return;
-        }*/
-
-        const getUserRole = httpsCallable(functions, 'getUserRole');
-        console.log('Calling getUserRole function with fresh token:', freshToken.substring(0, 10) + '...');
-        
-        // Add a small delay to ensure token propagation
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        const response = await getUserRole();
-        console.log('getUserRole response:', response.data);
-        
-        if (!response.data || !response.data.role) {
-          console.error('Invalid response from getUserRole:', response);
-          throw new Error('Invalid response from getUserRole function');
-        }
-        
-        const { role } = response.data;
-        console.log('User role retrieved:', role);
-
-        // Redirect based on role
-        console.log('Redirecting user based on role:', role);
-        if (role === 'buyer') {
-          navigate('/home');
-        } else if (role === 'seller') {
-          navigate('/sellerpage');
-        } else if (role === 'admin') {
-          navigate('/admin');
-        } else {
-          console.error('Unrecognized role:', role);
-          setError('User role not recognized.');
-        }
-      } catch (funcError) {
-        console.error('Cloud function error:', funcError);
-        if (funcError.code === 'functions/unauthenticated') {
-          setError('Authentication failed. Please try logging in again.');
-        } else if (funcError.code === 'functions/not-found') {
-          setError('User profile not found. Please contact support.');
-        } else if (funcError.message === 'User authentication lost') {
-          setError('Authentication session expired. Please try logging in again.');
-        } else if (funcError.message === 'Invalid response from getUserRole function') {
-          setError('Failed to get user role. Please try again.');
-        } else {
-          console.error('Unexpected error:', funcError);
-          setError('An unexpected error occurred. Please try again.');
-        }
-      }
-    } catch (err) {
-      console.error("Login failed:", err);
-      if (err.code === 'auth/user-not-found' || err.code === 'auth/wrong-password') {
-        setError('Invalid email or password');
-      } else if (err.code === 'functions/not-found') {
-        setError('User profile not found in database.');
-      } else if (err.code === 'functions/invalid-argument') {
-        setError('Invalid login request. Try again.');
-      } else if (err.code === 'auth/too-many-requests') {
-        setError('Too many failed attempts. Please try again later.');
+      // Navigate based on role
+      if (userData.role === "admin") {
+        navigate("/admin", { replace: true });
+      } else if (userData.role === "seller") {
+        navigate("/sellerpage", { replace: true });
+      } else if (userData.role === "buyer") {
+        navigate("/home", { replace: true });
       } else {
-        setError('Login failed: ' + err.message);
+        // Default to home if role is not recognized
+        console.log("Unknown role, defaulting to home page");
+        navigate("/home", { replace: true });
       }
+    } catch (error) {
+      console.error("Login error:", error);
+      setError(error.message);
     } finally {
       setIsLoading(false);
     }
@@ -191,7 +165,9 @@ const Login = () => {
             required
             style={styles.input}
           />
-          <button type="submit" style={styles.button}>Log In</button>
+          <button type="submit" style={styles.button} disabled={isLoading}>
+            {isLoading ? 'Logging in...' : 'Log In'}
+          </button>
         </form>
 
         <p style={styles.forgotPassword} onClick={handleForgotPassword}>

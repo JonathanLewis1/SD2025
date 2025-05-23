@@ -1,7 +1,6 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { CartProvider } from './context/CartContext';
-import { PayPalScriptProvider } from "@paypal/react-paypal-js";
 
 import NotFoundPage from './pages/NotFoundPage.js';
 import Login from './pages/Login/Login.js';
@@ -14,66 +13,65 @@ import About from './pages/About/About.js';
 import ProductDetail from './pages/Home/ProductDetail.js';
 import Cart from './pages/Cart.js';
 import Checkout from './pages/Checkout.js';
-import ProtectedRoute from './components/ProtectedRoute'; // if you're using role-based routing
+import MockCheckout from './pages/MockCheckout.js';
+import ProtectedRoute from './components/ProtectedRoute';
 import PrivacyPolicy from './pages/About/PrivacyPolicy';
 import ContactAdmin from './pages/About/ContactAdmin';
-import CheckoutWindow from './pages/CheckoutWindow/CheckoutWindow.js';
-
 
 const App = () => {
   return (
-      <CartProvider>
-        <Router>
-          <Layout>
-            <Routes>
-              <Route path="/" element={<Navigate to="/login" />} />
-              <Route path="/login" element={<Login />} />
-              <Route path="/signup" element={<SignUp />} />
-              <Route path="/admin" element={<Admin />} />
-              <Route path="/about" element={<About />} />
-              <Route path="/cart" element={<Cart />} />
-              <Route path="/checkout" element={<Checkout />} />
-              <Route path="/mock-checkout" element={<CheckoutWindow />} />
+    <CartProvider>
+      <Router>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Navigate to="/login" />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/signup" element={<SignUp />} />
+            <Route path="/admin" element={<Admin />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/cart" element={<Cart />} />
+            <Route path="/checkout" element={<Checkout />} />
+            <Route path="/mock-checkout" element={<MockCheckout />} />
 
-              {/* Public product detail page */}
-              <Route path="/product/:productId" element={<ProductDetail />} />
+            {/* Public product detail page */}
+            <Route path="/product/:productId" element={<ProductDetail />} />
 
-              {/* Role-protected routes (edit roles as needed) */}
-              <Route
-                path="/home"
-                element={
-                  <ProtectedRoute allowedRoles={['buyer', 'seller', 'admin']}>
-                    <Home />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/sellerpage"
-                element={
-                  <ProtectedRoute allowedRoles={['seller', 'admin']}>
-                    <SellerPage />
-                  </ProtectedRoute>
-                }
-              />
+            {/* Role-protected routes (edit roles as needed) */}
+            <Route
+              path="/home"
+              element={
+                <ProtectedRoute allowedRoles={['buyer', 'seller', 'admin']}>
+                  <Home />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/sellerpage"
+              element={
+                <ProtectedRoute allowedRoles={['seller', 'admin']}>
+                  <SellerPage />
+                </ProtectedRoute>
+              }
+            />
 
-              {/* <Route
-                path="/seller-dashboard"
-                element={
-                  <ProtectedRoute allowedRoles={['seller', 'admin']}>
-                    <h1>Seller Dashboard (Coming Soon)</h1>
-                  </ProtectedRoute>
-                }
-              /> */}
+            {/* <Route
+              path="/seller-dashboard"
+              element={
+                <ProtectedRoute allowedRoles={['seller', 'admin']}>
+                  <h1>Seller Dashboard (Coming Soon)</h1>
+                </ProtectedRoute>
+              }
+            /> */}
 
-              <Route path="*" element={<NotFoundPage />} />
+            <Route path="*" element={<NotFoundPage />} />
 
-              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-              <Route path="/contact-admin" element={<ContactAdmin />} />
+            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+            <Route path="/contact-admin" element={<ContactAdmin />} />
 
-            </Routes>
-          </Layout>
-        </Router>
-      </CartProvider>
+          </Routes>
+        </Layout>
+      </Router>
+    </CartProvider>
   );
 };
 

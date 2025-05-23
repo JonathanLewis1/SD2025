@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
+import { auth } from '../../firebase';
 import ProductCard from './ProductCard';
 
 const Home = () => {
@@ -9,19 +9,43 @@ const Home = () => {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
+  const [error, setError] = useState(null);
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      const querySnapshot = await getDocs(collection(db, 'products'));
-      const data = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setProducts(data);
-    };
-
     fetchProducts();
   }, []);
+
+  const fetchProducts = async () => {
+    try {
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('User not authenticated');
+      }
+      const token = await user.getIdToken();
+
+      const response = await fetch(
+        "https://us-central1-sd2025law.cloudfunctions.net/getAllProducts",
+        {
+          method: "GET",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch products');
+      }
+
+      const data = await response.json();
+      setProducts(data.products || []);
+      setError(null);
+    } catch (err) {
+      console.error('Error fetching products:', err);
+      setError('Failed to fetch products');
+    }
+  };
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name?.toLowerCase().trim().includes(searchTerm.toLowerCase().trim());
@@ -38,142 +62,139 @@ const Home = () => {
     setMaxPrice('');
   };
 
+  if (error) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.error}>{error}</Text>
+      </View>
+    );
+  }
+
   return (
-    <div style={styles.container}>
-      <h1 style={styles.heading}>Explore Products</h1>
+    <ScrollView style={styles.container}>
+      <View style={styles.searchContainer}>
+        <View style={styles.searchBar}>
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search products..."
+            value={searchTerm}
+            onChangeText={setSearchTerm}
+          />
+        </View>
 
-      <div style={styles.filterPanel}>
-        <h3 style={styles.subheading}>Filter by:</h3>
-
-        <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          style={styles.dropdown}
-        >
-          <option value="All">All Categories</option>
-          <option value="Jewelry">Jewelry</option>
-          <option value="Clothing">Clothing</option>
-          <option value="Home Decor">Home Decor</option>
-          <option value="Woodwork">Woodwork</option>
-        </select>
-
-        <input
-          type="text"
-          placeholder="Search for a product..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={styles.searchInput}
-        />
-
-        <div style={styles.priceFilter}>
-          <input
-            type="number"
+        <View style={styles.filtersContainer}>
+          <TextInput
+            style={styles.filterInput}
             placeholder="Min Price"
             value={minPrice}
-            onChange={(e) => setMinPrice(e.target.value)}
-            style={styles.priceInput}
+            onChangeText={setMinPrice}
+            keyboardType="numeric"
           />
-          <input
-            type="number"
+          <TextInput
+            style={styles.filterInput}
             placeholder="Max Price"
             value={maxPrice}
-            onChange={(e) => setMaxPrice(e.target.value)}
-            style={styles.priceInput}
+            onChangeText={setMaxPrice}
+            keyboardType="numeric"
           />
-        </div>
+          <TouchableOpacity
+            style={styles.filterButton}
+            onPress={() => setSelectedCategory(selectedCategory === 'All' ? 'Jewelry' : 'All')}
+          >
+            <Text style={styles.filterButtonText}>
+              {selectedCategory === 'All' ? 'All Categories' : selectedCategory}
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.resetButton}
+            onPress={handleReset}
+          >
+            <Text style={styles.resetButtonText}>Reset Filters</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
 
-        <button onClick={handleReset} style={styles.resetButton}>
-          Reset Filters
-        </button>
-      </div>
-
-      <div style={styles.productGrid}>
-        {filteredProducts.length > 0 ? (
-          filteredProducts.map(product => (
-            <ProductCard key={product.id} product={product} />
-          ))
-        ) : (
-          <p>No products found.</p>
-        )}
-      </div>
-    </div>
+      <View style={styles.productsContainer}>
+        {filteredProducts.map(product => (
+          <ProductCard key={product.id} product={product} />
+        ))}
+      </View>
+    </ScrollView>
   );
 };
 
-const styles = {
+const styles = StyleSheet.create({
   container: {
-    backgroundColor: '#feffdf',
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    flexDirection: 'column',
-    padding: 32,
+    flex: 1,
+    backgroundColor: '#f5f5f5',
   },
-  heading: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    marginBottom: 24,
-    color: '#3b82f6',
+  searchContainer: {
+    padding: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#ddd',
   },
-  filterPanel: {
-    backgroundColor: '#ffffff',
-    padding: 20,
-    borderRadius: 12,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    marginBottom: 24,
-    width: '100%',
-    maxWidth: 500,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12,
-  },
-  subheading: {
-    fontSize: 16,
-    fontWeight: 600,
-    color: '#555',
-    marginBottom: 4,
-  },
-  dropdown: {
-    padding: '12px 16px',
-    borderRadius: 8,
-    border: '1px solid #ccc',
-    fontSize: 16,
+  searchBar: {
+    marginBottom: 16,
   },
   searchInput: {
-    padding: '12px 16px',
+    height: 40,
+    borderWidth: 1,
+    borderColor: '#ddd',
     borderRadius: 8,
-    border: '1px solid #ccc',
-    fontSize: 16,
+    paddingHorizontal: 12,
+    backgroundColor: '#fff',
   },
-  priceFilter: {
-    display: 'flex',
-    gap: 12,
+  filtersContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
   },
-  priceInput: {
+  filterInput: {
     flex: 1,
-    padding: '10px 14px',
+    minWidth: 100,
+    height: 40,
+    borderWidth: 1,
+    borderColor: '#ddd',
     borderRadius: 8,
-    border: '1px solid #ccc',
-    fontSize: 16,
+    paddingHorizontal: 12,
+    backgroundColor: '#fff',
+  },
+  filterButton: {
+    padding: 8,
+    backgroundColor: '#3b82f6',
+    borderRadius: 8,
+    minWidth: 120,
+  },
+  filterButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: '500',
   },
   resetButton: {
-    padding: '10px 16px',
-    border: '1px solid #ccc',
-    backgroundColor: '#fef2f2',
-    color: '#b91c1c',
+    padding: 8,
+    backgroundColor: '#f97316',
     borderRadius: 8,
-    cursor: 'pointer',
-    fontWeight: 500,
-    alignSelf: 'flex-start',
-    marginTop: 8,
+    minWidth: 120,
   },
-  productGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+  resetButtonText: {
+    color: '#fff',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  productsContainer: {
+    padding: 16,
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 16,
-    width: '100%',
-    maxWidth: 1000,
+    justifyContent: 'center',
   },
-};
+  error: {
+    color: 'red',
+    textAlign: 'center',
+    marginTop: 32,
+    fontSize: 16,
+  },
+});
 
 export default Home;

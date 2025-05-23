@@ -7,14 +7,12 @@
  * See a full list of supported triggers at https://firebase.google.com/docs/functions
  */
 
-const {onCall, HttpsError} = require("firebase-functions/v2/https");
-const logger = require("firebase-functions/logger");
-const admin = require("firebase-admin");
 const functions = require("firebase-functions");
-//const stripe = require("stripe")(functions.config().stripe.secret_key);
+const admin = require("firebase-admin");
+const cors = require("cors")({origin: true});
 admin.initializeApp();
 
-const db = admin.firestore();
+// const db = admin.firestore(); // This variable is not used
 
 // Create and deploy your first functions
 // https://firebase.google.com/docs/functions/get-started
@@ -25,155 +23,527 @@ const db = admin.firestore();
 // });
 
 // Get user role by UID
-exports.getUserRole = onCall({
-  cors: ["http://localhost:3000", "https://your-production-domain.com"],
-  maxInstances: 10,
-}, async (request) => {
-  try {
-    if (!request.auth) {
-      logger.error('getUserRole: No auth context in request');
-      throw new HttpsError('unauthenticated', 'User must be logged in');
+exports.getUserRole = functions.https.onRequest((req, res) => {
+  return cors(req, res, async () => {
+    try {
+      // Get the authorization token from the request
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const idToken = authHeader.split("Bearer ")[1];
+      // const decodedToken = await admin.auth().verifyIdToken(idToken); // This variable is not used
+
+      const { email } = req.body;
+      if (!email) {
+        res.status(400).json({ error: "Email is required" });
+        return;
+      }
+
+      const userDoc = await admin.firestore()
+        .collection("users")
+        .doc(email)
+        .get();
+
+      if (!userDoc.exists) {
+        res.json({ role: "user" });
+        return;
+      }
+
+      res.json(userDoc.data());
+    } catch (error) {
+      console.error("Error getting user role:", error);
+      res.status(500).json({ error: "Internal server error" });
     }
-
-    const uid = request.auth.uid;
-    logger.info('getUserRole: Processing request for user', { uid });
-
-    const userDoc = await db.collection('users').doc(uid).get();
-    if (!userDoc.exists) {
-      logger.error('getUserRole: User document not found', { uid });
-      throw new HttpsError('not-found', 'User profile not found');
-    }
-
-    const userData = userDoc.data();
-    logger.info('getUserRole: User role retrieved successfully', { uid, role: userData.role });
-    return { role: userData.role };
-  } catch (err) {
-    logger.error('getUserRole: Unexpected error', { message: err.message });
-    throw new HttpsError('internal', err.message || 'Unknown error');
-  }
+  });
 });
 
+exports.registerUserProfile = functions.https.onRequest((req, res) => {
+  return cors(req, res, async () => {
+    try {
+      // Get the authorization token from the request
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
 
-exports.registerUserProfile = onCall({
-  cors: ["http://localhost:3000", "https://your-production-domain.com"],
-  maxInstances: 10,
-}, async (request) => {
-  logger.info('registerUserProfile function called', { auth: request.auth });
-  
-  if (!request.auth) {
-    logger.error('No auth context in request');
-    throw new HttpsError('User must be logged in');
-  }
+      const idToken = authHeader.split("Bearer ")[1];
+      // const decodedToken = await admin.auth().verifyIdToken(idToken); // This variable is not used
 
-  const { firstName, lastName, role, email } = request.data;
-  const uid = request.auth.uid;
+      const { email, role, firstName, lastName } = req.body;
+      if (!email || !role) {
+        res.status(400).json({ error: "Email and role are required" });
+        return;
+      }
 
-  logger.info('Processing registration for user', { uid, email });
+      await admin.firestore().collection('users').doc(email).set({
+        email,
+        role,
+        firstName,
+        lastName,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
 
-  if (!firstName || !lastName || !role || !email) {
-    logger.error('Missing required fields', { firstName, lastName, role, email });
-    throw new HttpsError('Missing required fields');
+      res.json({ success: true });
+    } catch (error) {
+      console.error('Error registering user profile:', error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+});
+
+exports.getAllUsers = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated'
+    );
   }
 
   try {
-    await db.collection('users').doc(uid).set({
-      firstName,
-      lastName,
-      role,
-      email,
-      createdAt: new Date().toISOString(),
+    const usersSnapshot = await admin.firestore().collection('users').get();
+    const users = [];
+    usersSnapshot.forEach(doc => {
+      users.push({
+        id: doc.id,
+        ...doc.data()
+      });
     });
-    logger.info('User profile registered successfully', { uid });
-    return { success: true };
+    return { users };
   } catch (error) {
-    logger.error('Error registering user profile', { error: error.message, uid });
-    throw new HttpsError(error.message);
+    console.error('Error getting users:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to get users'
+    );
   }
 });
 
-exports.getAllUsers = onCall({ cors: true }, async (request) => {
-  const snapshot = await db.collection('users').get();
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  }));
-});
-
-exports.getAllComplaints = onCall({ cors: true }, async (request) => {
-  const snapshot = await db.collection('complaints').get();
-  return snapshot.docs.map(doc => doc.data());
-});
-
-exports.banUser = onCall({ cors: true }, async (request) => {
-  const { userId, email } = request.data;
-  if (!userId || !email) throw new HttpsError('Missing user ID or email');
-
-  try {
-    await db.collection('users').doc(userId).update({ banned: true });
-    await db.collection('bannedEmails').doc(email).set({ banned: true });
-    return { success: true };
-  } catch (error) {
-    throw new HttpsError('Failed to ban user: ' + error.message);
-  }
-});
-
-
-exports.submitComplaint = onCall({ cors: true }, async (request) => {
-  const { name, email, message } = request.data;
-
-  if (!name || !email || !message) {
-    throw new HttpsError('All fields are required');
+exports.getAllComplaints = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated'
+    );
   }
 
   try {
-    await db.collection('complaints').add({
-      name,
+    const complaintsSnapshot = await admin.firestore().collection('complaints').get();
+    const complaints = [];
+    complaintsSnapshot.forEach(doc => {
+      complaints.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    return { complaints };
+  } catch (error) {
+    console.error('Error getting complaints:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to get complaints'
+    );
+  }
+});
+
+exports.banUser = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated'
+    );
+  }
+
+  const { email } = data;
+  if (!email) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Email is required'
+    );
+  }
+
+  try {
+    await admin.firestore().collection('banned_users').doc(email).set({
       email,
+      bannedAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    return { success: true };
+  } catch (error) {
+    console.error('Error banning user:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to ban user'
+    );
+  }
+});
+
+exports.submitComplaint = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated'
+    );
+  }
+
+  const { subject, message } = data;
+  if (!subject || !message) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Subject and message are required'
+    );
+  }
+
+  try {
+    const complaintRef = await admin.firestore().collection('complaints').add({
+      email: context.auth.token.email,
+      subject,
       message,
-      createdAt: new Date().toISOString()
+      status: 'pending',
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    return { id: complaintRef.id };
+  } catch (error) {
+    console.error('Error submitting complaint:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to submit complaint'
+    );
+  }
+});
+
+exports.isEmailBanned = functions.https.onRequest((req, res) => {
+  return cors(req, res, async () => {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        res.status(400).json({ error: "Email is required" });
+        return;
+      }
+
+      const bannedUserDoc = await admin.firestore()
+        .collection("banned_users")
+        .doc(email)
+        .get();
+
+      res.json({ isBanned: bannedUserDoc.exists });
+    } catch (error) {
+      console.error("Error checking banned status:", error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+});
+
+exports.submitMockOrder = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated'
+    );
+  }
+
+  const { items, total } = data;
+  if (!items || !total) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Items and total are required'
+    );
+  }
+
+  try {
+    const orderItems = items.map(item => ({
+      id: item.id,
+      name: item.name,
+      price: item.price,
+      quantity: item.quantity
+    }));
+
+    const orderRef = await admin.firestore().collection('orders').add({
+      email: context.auth.token.email,
+      items: orderItems,
+      total,
+      status: 'pending',
+      createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      sellersEmails: [context.auth.token.email]
+    });
+    return { id: orderRef.id };
+  } catch (error) {
+    console.error('Error submitting order:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to submit order'
+    );
+  }
+});
+
+exports.getSellerProducts = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated'
+    );
+  }
+
+  const { email } = data;
+  if (!email) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Email is required'
+    );
+  }
+
+  try {
+    const productsSnapshot = await admin.firestore()
+      .collection('products')
+      .where('email', '==', email)
+      .get();
+
+    const products = [];
+    productsSnapshot.forEach(doc => {
+      products.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    return { products };
+  } catch (error) {
+    console.error('Error getting seller products:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to get seller products'
+    );
+  }
+});
+
+exports.addProduct = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated'
+    );
+  }
+
+  const { name, price, description, image, category, email, stock } = data;
+  if (!name || !price || !description || !image || !category || !email || stock === undefined) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'All fields are required'
+    );
+  }
+
+  try {
+    const productRef = await admin.firestore().collection('products').add({
+      name,
+      price,
+      description,
+      image,
+      category,
+      email,
+      stock,
+      createdAt: admin.firestore.FieldValue.serverTimestamp()
+    });
+    return { id: productRef.id };
+  } catch (error) {
+    console.error('Error adding product:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to add product'
+    );
+  }
+});
+
+exports.updateProductStock = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated'
+    );
+  }
+
+  const { productId, stock } = data;
+  if (!productId || stock === undefined) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Product ID and stock are required'
+    );
+  }
+
+  try {
+    const productDoc = await admin.firestore().collection('products').doc(productId).get();
+    if (!productDoc.exists) {
+      throw new functions.https.HttpsError(
+        'not-found',
+        'Product not found'
+      );
+    }
+
+    const productData = productDoc.data();
+    if (productData.email !== context.auth.token.email) {
+      throw new functions.https.HttpsError(
+        'permission-denied',
+        'You can only update your own products'
+      );
+    }
+
+    await admin.firestore().collection('products').doc(productId).update({
+      stock,
+      updatedAt: admin.firestore.FieldValue.serverTimestamp()
     });
     return { success: true };
   } catch (error) {
-    throw new HttpsError('Failed to submit complaint: ' + error.message);
+    console.error('Error updating product stock:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to update product stock'
+    );
   }
 });
 
+exports.deleteProduct = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated'
+    );
+  }
 
-exports.isEmailBanned = onCall({ cors: ["http://localhost:3000", "https://your-production-domain.com"] }, async (request) => {
+  const { productId } = data;
+  if (!productId) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Product ID is required'
+    );
+  }
+
   try {
-    const email = request.data?.email;
-    if (typeof email !== 'string' || email.trim() === '') {
-      logger.error("Missing or invalid email received", { data: request.data });
-      throw new HttpsError('invalid-argument', 'Email is required');
+    const productDoc = await admin.firestore().collection('products').doc(productId).get();
+    if (!productDoc.exists) {
+      throw new functions.https.HttpsError(
+        'not-found',
+        'Product not found'
+      );
     }
-    const docRef = db.collection('bannedEmails').doc(email.trim().toLowerCase());
-    const docSnap = await docRef.get();
-    return { banned: docSnap.exists };
-  } catch (err) {
-    logger.error("Fatal error in isEmailBanned", { message: err.message, stack: err.stack });
-    throw new HttpsError('internal', err.message || 'Unexpected failure');
+
+    const productData = productDoc.data();
+    if (productData.email !== context.auth.token.email) {
+      throw new functions.https.HttpsError(
+        'permission-denied',
+        'You can only delete your own products'
+      );
+    }
+
+    await admin.firestore().collection('products').doc(productId).delete();
+    return { success: true };
+  } catch (error) {
+    console.error('Error deleting product:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to delete product'
+    );
   }
 });
 
-exports.submitMockOrder = onCall({ cors: true }, async (request) => {
-  const { cartItems, buyerEmail, shippingAddress } = request.data;
-
-  if (!cartItems || !buyerEmail || !shippingAddress) {
-    throw new HttpsError("Missing required fields");
+exports.getSellerOrders = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated'
+    );
   }
 
-  const orderData = {
-    buyerEmail,
-    shippingAddress,
-    timestamp: Date.now(),
-    products: cartItems.map(item => item.name),
-    quantity: cartItems.map(item => item.quantity),
-    Price: cartItems.map(item => item.price),
-    sellersEmails: cartItems.map(item => item.email),
-    productNames: cartItems.map(item => item.name),
-    DeliveryStatus: "Pending"
-  };
+  const { email } = data;
+  if (!email) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Email is required'
+    );
+  }
 
-  await admin.firestore().collection("orders").add(orderData);
-  return { success: true };
+  try {
+    const snapshot = await admin.firestore().collection('orders').get();
+    const orders = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    // Filter orders where the seller's email matches
+    const sellerOrders = orders.filter(order => 
+      order.sellersEmails && order.sellersEmails.includes(email)
+    );
+
+    return sellerOrders;
+  } catch (error) {
+    console.error('Error getting seller orders:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to get seller orders'
+    );
+  }
+});
+
+exports.getAllProducts = functions.https.onRequest((req, res) => {
+  return cors(req, res, async () => {
+    try {
+      // Get the authorization token from the request
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const idToken = authHeader.split("Bearer ")[1];
+      await admin.auth().verifyIdToken(idToken);
+
+      const productsSnapshot = await admin.firestore().collection('products').get();
+      const products = [];
+      productsSnapshot.forEach(doc => {
+        products.push({
+          id: doc.id,
+          ...doc.data()
+        });
+      });
+      res.json({ products });
+    } catch (error) {
+      console.error('Error getting products:', error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
+});
+
+exports.getProduct = functions.https.onRequest((req, res) => {
+  return cors(req, res, async () => {
+    try {
+      // Get the authorization token from the request
+      const authHeader = req.headers.authorization;
+      if (!authHeader || !authHeader.startsWith("Bearer ")) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+
+      const idToken = authHeader.split("Bearer ")[1];
+      await admin.auth().verifyIdToken(idToken);
+
+      const { productId } = req.body;
+      if (!productId) {
+        res.status(400).json({ error: "Product ID is required" });
+        return;
+      }
+
+      const productDoc = await admin.firestore().collection('products').doc(productId).get();
+      if (!productDoc.exists) {
+        res.status(404).json({ error: "Product not found" });
+        return;
+      }
+
+      res.json({
+        id: productDoc.id,
+        ...productDoc.data()
+      });
+    } catch (error) {
+      console.error('Error getting product:', error);
+      res.status(500).json({ error: "Internal server error" });
+    }
+  });
 });

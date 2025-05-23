@@ -2,8 +2,6 @@ import React, { useEffect, useState } from 'react';
 import { Navigate } from 'react-router-dom';
 import { auth } from '../firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../firebase';
 
 export default function ProtectedRoute({ children, allowedRoles }) {
   const [userRole, setUserRole] = useState(null);
@@ -12,22 +10,38 @@ export default function ProtectedRoute({ children, allowedRoles }) {
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      if (!user || !user.emailVerified) {
+      if (!user) {
         setUserRole(null);
         setLoading(false);
         return;
       }
 
       try {
-        const docRef = doc(db, 'users', user.uid);
-        const docSnap = await getDoc(docRef);
+        // Get a fresh token
+        const token = await user.getIdToken(true);
+        
+        // Call getUserRole function with the token
+        const response = await fetch(
+          "https://us-central1-sd2025law.cloudfunctions.net/getUserRole",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({ email: user.email }),
+          }
+        );
 
-        if (docSnap.exists()) {
-          setUserRole(docSnap.data().role);
-        } else {
-          setError('User role not found.');
+        if (!response.ok) {
+          throw new Error("Failed to get user role");
         }
+
+        const userData = await response.json();
+        console.log("Protected route - User data:", userData);
+        setUserRole(userData.role);
       } catch (err) {
+        console.error('Error fetching user role:', err);
         setError('Error fetching user role.');
       }
 
@@ -40,11 +54,13 @@ export default function ProtectedRoute({ children, allowedRoles }) {
   if (loading) return <div>Loading...</div>; // or a loading spinner
 
   if (error) {
-    return <Navigate to="/error" />; // You can create an error page or handle it differently
+    console.error('Protected route error:', error);
+    return <Navigate to="/login" />;
   }
 
-  // If no user or role mismatch, redirect to login or unauthorized page
+  // If no user or role mismatch, redirect to login
   if (!userRole || !allowedRoles.includes(userRole)) {
+    console.log('Role mismatch or no role:', { userRole, allowedRoles });
     return <Navigate to="/login" />;
   }
 
