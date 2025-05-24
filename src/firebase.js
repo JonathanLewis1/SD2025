@@ -14,9 +14,27 @@ const firebaseConfig = {
     measurementId: "G-8ECGH3WP77"
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+
+// Initialize Functions with explicit region and auth
 const functions = getFunctions(app, "us-central1");
+
+// Debug logging
+console.log('Firebase initialized:', {
+    app: !!app,
+    auth: !!auth,
+    functions: !!functions,
+    functionsRegion: functions.region,
+    functionsCustomDomain: functions.customDomain,
+    authState: auth.currentUser ? {
+        uid: auth.currentUser.uid,
+        email: auth.currentUser.email,
+        isAuthenticated: true
+    } : 'No user'
+});
+
 const db = getFirestore(app);
 const storage = getStorage(app);
 

@@ -20,47 +20,112 @@ const SellerPage = () => {
   });
   const [error, setError] = useState('');
   const [userEmail, setUserEmail] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && user.email) {
-        setUserEmail(user.email);
-        fetchProducts(user.email);
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+      setIsLoading(true);
+      if (user) {
+        try {
+          setUserEmail(user.email);
+          await fetchProducts(user.email);
+        } catch (err) {
+          console.error('Error getting auth token:', err);
+          setError('Authentication error. Please try logging in again.');
+        }
+      } else {
+        setUserEmail(null);
+        setProducts([]);
+        setError('Please log in to access the seller page');
       }
+      setIsAuthReady(true);
+      setIsLoading(false);
     });
     return () => unsubscribe();
   }, []);
 
   const fetchProducts = async (email) => {
+    if (!email || !isAuthReady) return;
+    
     try {
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('No authenticated user');
+      }
+      
       const getSellerProducts = httpsCallable(functions, 'getSellerProducts');
       const response = await getSellerProducts({ email });
-      setProducts(response.data);
+      
+      if (response.data && response.data.products) {
+        setProducts(response.data.products);
+        setError('');
+      } else {
+        setProducts([]);
+        setError('No products found');
+      }
     } catch (err) {
       console.error('Error fetching products:', err.message);
-      setError('Failed to fetch products');
+      setError('Failed to fetch products. Please try again.');
     }
   };
 
   const handleUpload = async (e) => {
     e.preventDefault();
 
-    if (!userEmail) {
+    console.log('Auth State:', {
+      userEmail,
+      isAuthReady,
+      currentUser: auth.currentUser,
+      isAuthenticated: !!auth.currentUser,
+      uid: auth.currentUser?.uid
+    });
+
+    if (!userEmail || !isAuthReady) {
+      console.log('Auth not ready:', { userEmail, isAuthReady });
       setError('You must be logged in to add a product.');
       return;
     }
-    if (!form.name || !form.price || !form.description || !form.imageUrl || !form.category) {
-      setError('All fields are required.');
-      return;
-    }
-    if (isNaN(form.price) || parseFloat(form.price) <= 0) {
-      setError('Price must be a positive number.');
+
+    const user = auth.currentUser;
+    if (!user) {
+      console.log('No current user found');
+      setError('You must be logged in to add a product.');
       return;
     }
 
     try {
+      if (!form.name || !form.price || !form.description || !form.imageUrl || !form.category) {
+        setError('All fields are required.');
+        return;
+      }
+      if (isNaN(form.price) || parseFloat(form.price) <= 0) {
+        setError('Price must be a positive number.');
+        return;
+      }
+
+      // Force token refresh and verify it
+      const idToken = await user.getIdToken(true);
+      console.log('Token refreshed:', idToken ? 'Token received' : 'No token');
+
+      // Create the function with explicit region
       const addProduct = httpsCallable(functions, 'addProduct');
-      await addProduct({
+      
+      // Log the function configuration
+      console.log('Function configuration:', {
+        name: 'addProduct',
+        region: functions.region,
+        customDomain: functions.customDomain,
+        auth: {
+          currentUser: !!auth.currentUser,
+          uid: auth.currentUser?.uid,
+          email: auth.currentUser?.email,
+          token: idToken ? 'Token present' : 'No token'
+        }
+      });
+
+      // Make the call
+      const response = await addProduct({
         name: form.name,
         price: parseFloat(form.price),
         description: form.description,
@@ -70,16 +135,39 @@ const SellerPage = () => {
         stock: 1
       });
 
+      console.log('Product added successfully:', response);
       setForm({ name: '', price: '', description: '', imageUrl: '', category: '' });
       setError('');
-      fetchProducts(userEmail);
+      await fetchProducts(userEmail);
     } catch (error) {
-      console.error("Error adding product:", error.message);
+      console.error("Error adding product:", error);
+      console.error("Error details:", {
+        code: error.code,
+        message: error.message,
+        stack: error.stack,
+        auth: {
+          currentUser: !!auth.currentUser,
+          uid: auth.currentUser?.uid,
+          email: auth.currentUser?.email,
+          token: await auth.currentUser?.getIdToken().catch(() => 'Failed to get token')
+        }
+      });
       setError("Failed to add product: " + error.message);
     }
   };
 
   const updateStock = async (productId, newStock) => {
+    if (!userEmail || !isAuthReady) {
+      setError('You must be logged in to update stock.');
+      return;
+    }
+
+    const user = auth.currentUser;
+    if (!user) {
+      setError('You must be logged in to update stock.');
+      return;
+    }
+
     if (isNaN(newStock) || parseInt(newStock) < 0) {
       setError('Stock must be a non-negative integer.');
       return;
@@ -87,7 +175,7 @@ const SellerPage = () => {
     try {
       const updateProductStock = httpsCallable(functions, 'updateProductStock');
       await updateProductStock({ productId, stock: parseInt(newStock) });
-      if (userEmail) fetchProducts(userEmail);
+      if (userEmail) await fetchProducts(userEmail);
     } catch (error) {
       console.error('Error updating stock:', error.message);
       setError('Failed to update stock');
@@ -95,10 +183,21 @@ const SellerPage = () => {
   };
 
   const deleteProduct = async (productId) => {
+    if (!userEmail || !isAuthReady) {
+      setError('You must be logged in to delete products.');
+      return;
+    }
+
+    const user = auth.currentUser;
+    if (!user) {
+      setError('You must be logged in to delete products.');
+      return;
+    }
+
     try {
       const deleteProductFn = httpsCallable(functions, 'deleteProduct');
       await deleteProductFn({ productId });
-      if (userEmail) fetchProducts(userEmail);
+      if (userEmail) await fetchProducts(userEmail);
     } catch (error) {
       console.error("Error deleting product:", error.message);
       setError('Failed to delete product');
@@ -112,11 +211,27 @@ const SellerPage = () => {
     if (ref.current) ref.current.scrollIntoView({ behavior: 'smooth' });
   };
 
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.loadingText}>Loading...</Text>
+      </View>
+    );
+  }
+
+  if (!userEmail) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.error}>{error}</Text>
+      </View>
+    );
+  }
+
   return (
     <ScrollView style={styles.container}>
       <View style={styles.section}>
         <Text style={styles.title}>Add New Product</Text>
-        {error && <Text style={styles.error}>{error}</Text>}
+        {error ? <Text style={styles.error}>{error}</Text> : null}
         <View style={styles.form}>
           <TextInput
             style={styles.input}
@@ -158,33 +273,37 @@ const SellerPage = () => {
 
       <View style={styles.section}>
         <Text style={styles.title}>Your Products</Text>
-        {products.map((product) => (
-          <View key={product.id} style={styles.productCard}>
-            <Text style={styles.productName}>{product.name}</Text>
-            <Text style={styles.productPrice}>${product.price}</Text>
-            <Text style={styles.productDescription}>{product.description}</Text>
-            <View style={styles.stockContainer}>
-              <TextInput
-                style={styles.stockInput}
-                value={stockEdits[product.id]?.toString() || product.stock.toString()}
-                onChangeText={(text) => setStockEdits({ ...stockEdits, [product.id]: text })}
-                keyboardType="numeric"
-              />
+        {products.length > 0 ? (
+          products.map((product) => (
+            <View key={product.id} style={styles.productCard}>
+              <Text style={styles.productName}>{product.name}</Text>
+              <Text style={styles.productPrice}>${product.price}</Text>
+              <Text style={styles.productDescription}>{product.description}</Text>
+              <View style={styles.stockContainer}>
+                <TextInput
+                  style={styles.stockInput}
+                  value={stockEdits[product.id]?.toString() || product.stock.toString()}
+                  onChangeText={(text) => setStockEdits({ ...stockEdits, [product.id]: text })}
+                  keyboardType="numeric"
+                />
+                <TouchableOpacity
+                  style={styles.stockButton}
+                  onPress={() => updateStock(product.id, stockEdits[product.id])}
+                >
+                  <Text style={styles.buttonText}>Update Stock</Text>
+                </TouchableOpacity>
+              </View>
               <TouchableOpacity
-                style={styles.stockButton}
-                onPress={() => updateStock(product.id, stockEdits[product.id])}
+                style={styles.deleteButton}
+                onPress={() => deleteProduct(product.id)}
               >
-                <Text style={styles.buttonText}>Update Stock</Text>
+                <Text style={styles.deleteButtonText}>Delete</Text>
               </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={styles.deleteButton}
-              onPress={() => deleteProduct(product.id)}
-            >
-              <Text style={styles.deleteButtonText}>Delete</Text>
-            </TouchableOpacity>
-          </View>
-        ))}
+          ))
+        ) : (
+          <Text style={styles.noProducts}>No products found</Text>
+        )}
       </View>
 
       <View style={styles.section} ref={reportRef}>
@@ -295,6 +414,17 @@ const styles = StyleSheet.create({
   deleteButtonText: {
     color: 'white',
     fontSize: 14,
+  },
+  loadingText: {
+    fontSize: 18,
+    textAlign: 'center',
+    marginTop: 20,
+    color: '#666',
+  },
+  noProducts: {
+    textAlign: 'center',
+    color: '#666',
+    marginTop: 20,
   },
 });
 

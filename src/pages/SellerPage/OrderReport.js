@@ -4,6 +4,7 @@ import { View, Text, TouchableOpacity, ScrollView, StyleSheet } from 'react-nati
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../firebase';
 import { exportToCSV } from './exportCSV';
+import { auth } from '../../firebase';
 
 const OrderReport = ({ userEmail }) => {
   const [orders, setOrders] = useState([]);
@@ -12,15 +13,42 @@ const OrderReport = ({ userEmail }) => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [sales, setSales] = useState([]);
   const [error, setError] = useState(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isAuthReady, setIsAuthReady] = useState(false);
 
   useEffect(() => {
-    if (userEmail) loadOrders();
+    const unsubscribe = auth.onAuthStateChanged((user) => {
+      setIsAuthReady(true);
+      if (user && userEmail) {
+        loadOrders();
+      } else {
+        setOrders([]);
+        setFiltered([]);
+        setSales([]);
+        setError('Please log in to view orders');
+        setIsLoading(false);
+      }
+    });
+    return () => unsubscribe();
   }, [userEmail]);
 
   const loadOrders = async () => {
+    if (!userEmail || !isAuthReady) return;
+    
     try {
+      setIsLoading(true);
+      const user = auth.currentUser;
+      if (!user) {
+        throw new Error('No authenticated user');
+      }
+      
       const getSellerOrders = httpsCallable(functions, 'getSellerOrders');
       const response = await getSellerOrders({ email: userEmail });
+      
+      if (!response.data) {
+        throw new Error('No data received from server');
+      }
+
       const items = [];
       const daily = {};
 
@@ -49,6 +77,8 @@ const OrderReport = ({ userEmail }) => {
     } catch (err) {
       console.error('Error fetching orders:', err);
       setError('Unable to load orders. Please try again later.');
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -88,10 +118,26 @@ const OrderReport = ({ userEmail }) => {
     </View>
   );
 
+  if (isLoading) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.loadingText}>Loading orders...</Text>
+      </View>
+    );
+  }
+
   if (error) {
     return (
       <View style={styles.container}>
         <Text style={styles.error}>{error}</Text>
+      </View>
+    );
+  }
+
+  if (!userEmail) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.error}>Please log in to view orders</Text>
       </View>
     );
   }
@@ -132,21 +178,27 @@ const OrderReport = ({ userEmail }) => {
                 <Text style={styles.filterButtonText}>{s}</Text>
               </TouchableOpacity>
             ))}
-            <TouchableOpacity
-              style={styles.exportButton}
-              onPress={() => exportToCSV(filtered, `${userEmail}_Orders`)}
-            >
-              <Text style={styles.exportButtonText}>Export Orders CSV</Text>
-            </TouchableOpacity>
+            {filtered.length > 0 && (
+              <TouchableOpacity
+                style={styles.exportButton}
+                onPress={() => exportToCSV(filtered, `${userEmail}_Orders`)}
+              >
+                <Text style={styles.exportButtonText}>Export Orders CSV</Text>
+              </TouchableOpacity>
+            )}
           </View>
-          {filtered.length ? renderCards(filtered) : <Text style={styles.noData}>No orders to display.</Text>}
+          {filtered.length > 0 ? (
+            renderCards(filtered)
+          ) : (
+            <Text style={styles.noData}>No orders to display</Text>
+          )}
         </View>
       )}
 
       {tab === 'sales' && (
         <View>
           <Text style={styles.subheading}>Sales Trends (by day)</Text>
-          {sales.length ? (
+          {sales.length > 0 ? (
             <>
               {renderTable(sales, ['date', 'qty'])}
               <TouchableOpacity
@@ -157,7 +209,7 @@ const OrderReport = ({ userEmail }) => {
               </TouchableOpacity>
             </>
           ) : (
-            <Text style={styles.noData}>No sales data.</Text>
+            <Text style={styles.noData}>No sales data available</Text>
           )}
         </View>
       )}
@@ -165,7 +217,7 @@ const OrderReport = ({ userEmail }) => {
       {tab === 'custom' && (
         <View>
           <Text style={styles.subheading}>Custom View</Text>
-          <Text style={styles.noData}>Coming soon: add date‐range or product filters here.</Text>
+          <Text style={styles.noData}>Coming soon: add date‐range or product filters here</Text>
         </View>
       )}
     </ScrollView>
@@ -296,6 +348,12 @@ const styles = StyleSheet.create({
     color: 'red',
     textAlign: 'center',
     marginTop: 32,
+  },
+  loadingText: {
+    fontSize: 18,
+    textAlign: 'center',
+    marginTop: 20,
+    color: '#666',
   },
 });
 
