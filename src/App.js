@@ -14,7 +14,7 @@ import Layout from './components/Layout.js';
 import About from './pages/About/About.js';
 import ProductDetail from './pages/Home/ProductDetail.js';
 import Cart from './pages/Cart.js';
-import Checkout from './pages/Checkout.js';
+import Checkout from './pages/CheckoutWindow/Checkout.js';
 import ProtectedRoute from './components/ProtectedRoute'; // if you're using role-based routing
 import PrivacyPolicy from './pages/About/PrivacyPolicy';
 import ContactAdmin from './pages/About/ContactAdmin';
@@ -28,7 +28,6 @@ const initialOptions = {
 
 const App = () => {
   return (
-    <PayPalScriptProvider options={initialOptions}>
       <CartProvider>
         <Router>
           <Layout>
@@ -80,7 +79,6 @@ const App = () => {
           </Layout>
         </Router>
       </CartProvider>
-    </PayPalScriptProvider>
   );
 };
 

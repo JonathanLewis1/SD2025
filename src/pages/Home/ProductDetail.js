@@ -7,7 +7,7 @@ import { useCart } from '../../context/CartContext';
 const ProductDetail = () => {
   const { productId } = useParams();
   const [product, setProduct] = useState(null);
-  const { addToCart } = useCart();
+  const { cart, addToCart } = useCart();
 
   useEffect(() => {
     const fetchProduct = async () => {
@@ -38,11 +38,17 @@ const ProductDetail = () => {
   }, [productId]);
 
   const handleAddToCart = () => {
-    if (product) {
-      addToCart(product);
-      alert("Product added to cart!");
-    }
-  };
+  const existingItem = cart.find(item => item.id === product.id);
+  const currentQuantity = existingItem ? existingItem.quantity : 0;
+
+  if (currentQuantity >= product.stock) {
+    alert("You cannot add more of this item. Stock limit reached.");
+    return;
+  }
+
+  addToCart({ ...product, stock: product.stock });
+  alert("Product added to cart!");
+};
 
   if (!product) return <p style={styles.loading}>Loading product details...</p>;
 

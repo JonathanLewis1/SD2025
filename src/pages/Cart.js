@@ -13,14 +13,24 @@ const Cart = () => {
   };
 
   const handleCheckout = () => {
-    navigate("/checkout");
+    try {
+      // Encode cart data to pass through URL
+      const cartData = encodeURIComponent(JSON.stringify(cart));
+      const checkoutUrl = `/checkout?cart=${cartData}`;
+      console.log('Opening checkout window with URL:', checkoutUrl);
+      console.log('Cart data being passed:', cart);
+      window.open(checkoutUrl, '_blank', 'width=600,height=700');
+    } catch (err) {
+      console.error('Error opening checkout window:', err);
+      alert('There was an error opening the checkout window. Please try again.');
+    }
   };
 
   if (cart.length === 0) {
     return (
       <div className="cart-empty">
         <h2>Your cart is empty</h2>
-        <button onClick={() => navigate("/")}>Continue Shopping</button>
+        <button onClick={() => navigate("/home")}>Continue Shopping</button>
       </div>
     );
   }
@@ -36,11 +46,15 @@ const Cart = () => {
               <h3>{item.name}</h3>
               <p>${item.price.toFixed(2)}</p>
               <div className="quantity-controls">
-                <button
-                  onClick={() => handleQuantityChange(item.id, item.quantity - 1)}
-                >
-                  -
-                </button>
+              <button
+  onClick={() => {
+    if (item.quantity < item.stock) {
+      handleQuantityChange(item.id, item.quantity + 1);
+    } else {
+      alert("Cannot exceed available stock.");
+    }
+  }}
+>+</button>
                 <span>{item.quantity}</span>
                 <button
                   onClick={() => handleQuantityChange(item.id, item.quantity + 1)}

@@ -7,15 +7,21 @@ const cartReducer = (state, action) => {
     case "ADD_TO_CART":
       const existingItem = state.items.find(item => item.id === action.payload.id);
       if (existingItem) {
-        return {
-          ...state,
-          items: state.items.map(item =>
-            item.id === action.payload.id
-              ? { ...item, quantity: item.quantity + 1 }
-              : item
-          ),
-        };
-      }
+  if (existingItem.quantity >= existingItem.stock) {
+    // Cannot add more than available stock
+    alert("You cannot add more of this item. Stock limit reached.");
+    return state;
+  }
+  return {
+    ...state,
+    items: state.items.map(item =>
+      item.id === action.payload.id
+        ? { ...item, quantity: item.quantity + 1 }
+        : item
+    ),
+  };
+}
+
       return {
         ...state,
         items: [...state.items, { ...action.payload, quantity: 1 }],
@@ -28,14 +34,23 @@ const cartReducer = (state, action) => {
       };
 
     case "UPDATE_QUANTITY":
-      return {
-        ...state,
-        items: state.items.map(item =>
-          item.id === action.payload.id
-            ? { ...item, quantity: action.payload.quantity }
-            : item
-        ),
-      };
+  return {
+    ...state,
+    items: state.items.map(item => {
+      if (item.id === action.payload.id) {
+        const safeQuantity = Math.min(action.payload.quantity, item.stock);
+        return { ...item, quantity: safeQuantity };
+      }
+      return item;
+    }),
+  };
+
+  case "LOAD_CART":
+  return {
+    ...state,
+    items: action.payload,
+  };
+
 
     case "CLEAR_CART":
       return {
