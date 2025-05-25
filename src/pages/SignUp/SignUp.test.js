@@ -4,6 +4,7 @@ import SignUp from './SignUp';
 import { BrowserRouter } from 'react-router-dom';
 import { createUserWithEmailAndPassword, sendEmailVerification } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
+import { auth, functions } from '../../firebase';
 
 jest.mock('firebase/auth', () => ({
   createUserWithEmailAndPassword: jest.fn(),
@@ -19,48 +20,49 @@ jest.mock('firebase/functions', () => ({
   httpsCallable: jest.fn(),
 }));
 
-const renderForm = () => render(
-  <BrowserRouter>
-    <SignUp />
-  </BrowserRouter>
-);
+const renderForm = () =>
+  render(
+    <BrowserRouter>
+      <SignUp />
+    </BrowserRouter>
+  );
 
-describe('SignUp Component', () => {
+describe('SignUp Component (Given-When-Then)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
   });
 
-  test('Given the user submits an empty form, Then the First Name error should show', async () => {
+  test('Given the user submits an empty form, When clicking Sign Up, Then show general required-fields error', async () => {
     renderForm();
     fireEvent.click(screen.getByText(/Sign Up/i));
-    expect(await screen.findByText(/First Name is required/i)).toBeInTheDocument();
+    expect(await screen.findByText(/All fields required\./i)).toBeInTheDocument();
   });
 
-  test('Given the user skips Last Name, Then the Last Name error should show', async () => {
+  test('Given the user fills only First Name, When clicking Sign Up, Then show general required-fields error', async () => {
     renderForm();
     fireEvent.change(screen.getByPlaceholderText(/First Name/i), { target: { value: 'Test' } });
     fireEvent.click(screen.getByText(/Sign Up/i));
-    expect(await screen.findByText(/Last Name is required/i)).toBeInTheDocument();
+    expect(await screen.findByText(/All fields required\./i)).toBeInTheDocument();
   });
 
-  test('Given the user skips email, Then the Email error should show', async () => {
+  test('Given the user fills names only, When clicking Sign Up, Then show general required-fields error', async () => {
     renderForm();
     fireEvent.change(screen.getByPlaceholderText(/First Name/i), { target: { value: 'Test' } });
     fireEvent.change(screen.getByPlaceholderText(/Last Name/i), { target: { value: 'User' } });
     fireEvent.click(screen.getByText(/Sign Up/i));
-    expect(await screen.findByText(/Email is required/i)).toBeInTheDocument();
+    expect(await screen.findByText(/All fields required\./i)).toBeInTheDocument();
   });
 
-  test('Given the user skips password, Then the Password error should show', async () => {
+  test('Given the user fills names and email only, When clicking Sign Up, Then show general required-fields error', async () => {
     renderForm();
     fireEvent.change(screen.getByPlaceholderText(/First Name/i), { target: { value: 'Test' } });
     fireEvent.change(screen.getByPlaceholderText(/Last Name/i), { target: { value: 'User' } });
     fireEvent.change(screen.getByPlaceholderText(/Email/i), { target: { value: 'test@example.com' } });
     fireEvent.click(screen.getByText(/Sign Up/i));
-    expect(await screen.findByText(/Password is required/i)).toBeInTheDocument();
+    expect(await screen.findByText(/All fields required\./i)).toBeInTheDocument();
   });
 
-  test('Given the user is banned, Then an error message should show and user is not created', async () => {
+  test('Given the user enters banned email, When submitting the form, Then an error message should show and user is not created', async () => {
     httpsCallable.mockImplementation((_, name) => {
       if (name === 'isEmailBanned') {
         return () => Promise.resolve({ data: { banned: true } });
@@ -73,18 +75,12 @@ describe('SignUp Component', () => {
     fireEvent.change(screen.getByPlaceholderText(/Email/i), { target: { value: 'banned@example.com' } });
     fireEvent.change(screen.getByPlaceholderText(/Password/i), { target: { value: 'password123' } });
     fireEvent.click(screen.getByText(/Sign Up/i));
-    expect(await screen.findByText(/email has been banned/i)).toBeInTheDocument();
+
+    expect(await screen.findByText(/This email is banned\./i)).toBeInTheDocument();
   });
 
-  test('Given all fields are valid and user is not banned, When submitting the form, Then account is created and redirected', async () => {
-    const mockUser = {
-      user: {
-        uid: 'uid123',
-        email: 'test@example.com',
-        emailVerified: false,
-        metadata: {},
-      },
-    };
+  test('Given all fields valid and user not banned, When submitting the form, Then account is created and redirected', async () => {
+    const mockUser = { user: { uid: 'uid123' } };
 
     httpsCallable.mockImplementation((_, name) => {
       if (name === 'isEmailBanned') {
@@ -101,18 +97,17 @@ describe('SignUp Component', () => {
     renderForm();
     fireEvent.change(screen.getByPlaceholderText(/First Name/i), { target: { value: 'Test' } });
     fireEvent.change(screen.getByPlaceholderText(/Last Name/i), { target: { value: 'User' } });
-    fireEvent.change(screen.getByPlaceholderText(/Email/i), { target: { value: 'test@example.com' } });
+    fireEvent.change(screen.getByPlaceholderText(/Email/i), { target: { value: 'user@example.com' } });
     fireEvent.change(screen.getByPlaceholderText(/Password/i), { target: { value: 'password123' } });
-
     fireEvent.click(screen.getByText(/Sign Up/i));
 
     await waitFor(() => {
-      expect(createUserWithEmailAndPassword).toHaveBeenCalled();
-      expect(sendEmailVerification).toHaveBeenCalled();
+      expect(createUserWithEmailAndPassword).toHaveBeenCalledWith(auth, 'user@example.com', 'password123');
+      expect(sendEmailVerification).toHaveBeenCalledWith(expect.objectContaining({ uid: 'uid123' }));
     });
   });
 
-  test('Given Firebase signup fails, Then it should show the error message', async () => {
+  test('Given Firebase signup fails, When createUserWithEmailAndPassword rejects, Then it should show the error message', async () => {
     httpsCallable.mockReturnValue(() => Promise.resolve({ data: { banned: false } }));
     createUserWithEmailAndPassword.mockRejectedValue(new Error('Signup failed'));
 
@@ -121,7 +116,6 @@ describe('SignUp Component', () => {
     fireEvent.change(screen.getByPlaceholderText(/Last Name/i), { target: { value: 'User' } });
     fireEvent.change(screen.getByPlaceholderText(/Email/i), { target: { value: 'fail@example.com' } });
     fireEvent.change(screen.getByPlaceholderText(/Password/i), { target: { value: 'password123' } });
-
     fireEvent.click(screen.getByText(/Sign Up/i));
 
     expect(await screen.findByText(/Signup failed/i)).toBeInTheDocument();
