@@ -1,139 +1,164 @@
-import React from 'react'
-import { render, screen, fireEvent, waitFor } from '@testing-library/react'
-import Checkout from './Checkout'
-import { useCart } from '../../context/CartContext'
-import { httpsCallable } from 'firebase/functions'
-import { functions, auth } from '../../firebase'
-import { BrowserRouter } from 'react-router-dom'
+// src/pages/CheckoutWindow/Cart.test.js
+
+import React from 'react';
+import { render, screen, fireEvent } from '@testing-library/react';
+import Cart from './Cart';
+import { useCart } from '../../context/CartContext';
+import { BrowserRouter } from 'react-router-dom';
+
+const mockNavigate = jest.fn();
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => mockNavigate,
+}));
 
 jest.mock('../../context/CartContext', () => ({
-  useCart: () => ({ clearCart: jest.fn() })
-}))
-jest.mock('firebase/functions', () => ({
-  httpsCallable: jest.fn()
-}))
-jest.mock('../../firebase', () => ({
-  functions: {},
-  auth: { currentUser: { uid: 'u1' } }
-}))
+  useCart: jest.fn(),
+}));
 
-describe('Checkout Component', () => {
-  let originalLocalStorage, closeSpy
+describe('Cart Component — Given/When/Then', () => {
+  const originalOpen = window.open;
+  const originalAlert = window.alert;
 
   beforeEach(() => {
-    originalLocalStorage = { ...window.localStorage }
-    window.localStorage.clear()
-    jest.clearAllMocks()
-    closeSpy = jest.spyOn(window, 'close').mockImplementation(() => {})
-  })
+    jest.clearAllMocks();
+    window.open = jest.fn();
+    window.alert = jest.fn();
+    localStorage.clear();
+  });
 
-  afterEach(() => {
-    window.localStorage.clear()
-    Object.assign(window.localStorage, originalLocalStorage)
-    closeSpy.mockRestore()
-  })
+  afterAll(() => {
+    window.open = originalOpen;
+    window.alert = originalAlert;
+  });
 
-  function renderWithRouter() {
-    return render(
+  function renderCart() {
+    render(
       <BrowserRouter>
-        <Checkout />
+        <Cart />
       </BrowserRouter>
-    )
+    );
   }
 
-  test('Given no cart data, when component mounts, then show "Your cart is empty"', () => {
-    renderWithRouter()
-    expect(screen.getByText(/Your cart is empty/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Close Window/i })).toBeInTheDocument()
-  })
+  test('Given empty cart, When rendered, Then show "Your cart is empty" and Continue Shopping button', () => {
+    useCart.mockReturnValue({
+      cart: [],
+      removeFromCart: jest.fn(),
+      updateQuantity: jest.fn(),
+      getTotal: jest.fn().mockReturnValue(0),
+    });
 
+    renderCart();
 
-  test('Given cart items but invalid card number, when user submits, then show card validation error', async () => {
-    const cartItems = [{ name: 'Item1', quantity: 1, price: 10 }]
-    window.localStorage.setItem('checkoutCart', JSON.stringify(cartItems))
-    renderWithRouter()
+    expect(screen.getByRole('heading', { level: 2, name: /your cart is empty/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /continue shopping/i })).toBeInTheDocument();
+  });
 
-    fireEvent.change(screen.getByPlaceholderText(/Card Number/i), { target: { value: '123' } })
-    fireEvent.change(screen.getByPlaceholderText(/CVV/i), { target: { value: '123' } })
-    fireEvent.change(screen.getByPlaceholderText(/MM\/YY/i), { target: { value: '12/30' } })
-    fireEvent.change(screen.getByPlaceholderText(/Street/i), { target: { value: '123 Main' } })
-    fireEvent.change(screen.getByPlaceholderText(/Suburb/i), { target: { value: 'Downtown' } })
-    fireEvent.change(screen.getByPlaceholderText(/City/i), { target: { value: 'City' } })
-    fireEvent.change(screen.getByPlaceholderText(/Postal Code/i), { target: { value: '0000' } })
-    fireEvent.click(screen.getByRole('button', { name: /Submit Payment/i }))
+  test('Given cart with items, When rendered, Then show each item and total', () => {
+    const item = {
+      id: '1',
+      name: 'Test Product',
+      image: 'https://example.com/img.png',
+      price: 20,
+      quantity: 2,
+      stock: 5,
+    };
+    useCart.mockReturnValue({
+      cart: [item],
+      removeFromCart: jest.fn(),
+      updateQuantity: jest.fn(),
+      getTotal: jest.fn().mockReturnValue(40),
+    });
 
-    expect(await screen.findByText(/Card number must be 16 digits\./i)).toBeInTheDocument()
-  })
+    renderCart();
 
-  test('Given valid form but no user logged in, when user submits, then show "User not logged in."', async () => {
-    delete auth.currentUser
-    const cartItems = [{ name: 'Item1', quantity: 1, price: 10 }]
-    window.localStorage.setItem('checkoutCart', JSON.stringify(cartItems))
-    renderWithRouter()
+    expect(screen.getByText('Test Product')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: /test product/i })).toHaveAttribute('src', item.image);
+    expect(screen.getByText('R20.00')).toBeInTheDocument();
+    expect(screen.getByText('2')).toBeInTheDocument();
+    expect(screen.getByText(/total: R40.00/i)).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /proceed to checkout/i })).toBeInTheDocument();
+  });
 
-    fireEvent.change(screen.getByPlaceholderText(/Card Number/i), { target: { value: '1'.repeat(16) } })
-    fireEvent.change(screen.getByPlaceholderText(/CVV/i), { target: { value: '123' } })
-    fireEvent.change(screen.getByPlaceholderText(/MM\/YY/i), { target: { value: '12/50' } })
-    fireEvent.change(screen.getByPlaceholderText(/Street/i), { target: { value: '123 Main' } })
-    fireEvent.change(screen.getByPlaceholderText(/Suburb/i), { target: { value: 'Downtown' } })
-    fireEvent.change(screen.getByPlaceholderText(/City/i), { target: { value: 'City' } })
-    fireEvent.change(screen.getByPlaceholderText(/Postal Code/i), { target: { value: '0000' } })
-    fireEvent.click(screen.getByRole('button', { name: /Submit Payment/i }))
+  test('Given cart with item, When clicking + within stock, Then updateQuantity is called', () => {
+    const updateQuantity = jest.fn();
+    const item = { id: '1', name: 'P', image: '', price: 5, quantity: 1, stock: 2 };
+    useCart.mockReturnValue({
+      cart: [item],
+      removeFromCart: jest.fn(),
+      updateQuantity,
+      getTotal: jest.fn().mockReturnValue(5),
+    });
 
-    expect(await screen.findByText(/User not logged in\./i)).toBeInTheDocument()
-  })
+    renderCart();
 
-  test('Given valid form and user, when processCheckout succeeds, then window.close is called', async () => {
-    auth.currentUser = { uid: 'u1' }
-    const mockFn = jest.fn().mockResolvedValue({})
-    httpsCallable.mockReturnValue(mockFn)
+    fireEvent.click(screen.getByRole('button', { name: '+' }));
+    expect(updateQuantity).toHaveBeenCalledWith(item.id, 2);
+  });
 
-    const cartItems = [{ name: 'Item1', quantity: 2, price: 5 }]
-    window.localStorage.setItem('checkoutCart', JSON.stringify(cartItems))
-    renderWithRouter()
+  test('Given cart with item at quantity 1, When clicking -, Then updateQuantity is not called', () => {
+    const updateQuantity = jest.fn();
+    const item = { id: '1', name: 'P', image: '', price: 5, quantity: 1, stock: 5 };
+    useCart.mockReturnValue({
+      cart: [item],
+      removeFromCart: jest.fn(),
+      updateQuantity,
+      getTotal: jest.fn().mockReturnValue(5),
+    });
 
-    fireEvent.change(screen.getByPlaceholderText(/Card Number/i), { target: { value: '1'.repeat(16) } })
-    fireEvent.change(screen.getByPlaceholderText(/CVV/i), { target: { value: '123' } })
-    fireEvent.change(screen.getByPlaceholderText(/MM\/YY/i), { target: { value: '12/50' } })
-    fireEvent.change(screen.getByPlaceholderText(/Street/i), { target: { value: '123 Main' } })
-    fireEvent.change(screen.getByPlaceholderText(/Suburb/i), { target: { value: 'Downtown' } })
-    fireEvent.change(screen.getByPlaceholderText(/City/i), { target: { value: 'City' } })
-    fireEvent.change(screen.getByPlaceholderText(/Postal Code/i), { target: { value: '0000' } })
-    fireEvent.click(screen.getByRole('button', { name: /Submit Payment/i }))
+    renderCart();
 
-    await waitFor(() => {
-      expect(mockFn).toHaveBeenCalledWith({
-        cart: cartItems,
-        deliveryType: 'standard',
-        address: expect.objectContaining({
-          street: '123 Main',
-          suburb: 'Downtown',
-          city: 'City',
-          postalCode: '0000'
-        })
-      })
-      expect(closeSpy).toHaveBeenCalled()
-    })
-  })
+    fireEvent.click(screen.getByRole('button', { name: '-' }));
+    expect(updateQuantity).not.toHaveBeenCalled();
+  });
 
-  test('Given processCheckout fails, when user submits, then show processing error', async () => {
-    auth.currentUser = { uid: 'u1' }
-    const mockFn = jest.fn().mockRejectedValue(new Error('fail'))
-    httpsCallable.mockReturnValue(mockFn)
+  test('Given cart with item, When clicking Remove, Then removeFromCart is called', () => {
+    const removeFromCart = jest.fn();
+    const item = { id: '1', name: 'X', image: '', price: 3, quantity: 1, stock: 5 };
+    useCart.mockReturnValue({
+      cart: [item],
+      removeFromCart,
+      updateQuantity: jest.fn(),
+      getTotal: jest.fn().mockReturnValue(3),
+    });
 
-    const cartItems = [{ name: 'Item1', quantity: 1, price: 5 }]
-    window.localStorage.setItem('checkoutCart', JSON.stringify(cartItems))
-    renderWithRouter()
+    renderCart();
 
-    fireEvent.change(screen.getByPlaceholderText(/Card Number/i), { target: { value: '1'.repeat(16) } })
-    fireEvent.change(screen.getByPlaceholderText(/CVV/i), { target: { value: '123' } })
-    fireEvent.change(screen.getByPlaceholderText(/MM\/YY/i), { target: { value: '12/50' } })
-    fireEvent.change(screen.getByPlaceholderText(/Street/i), { target: { value: '123 Main' } })
-    fireEvent.change(screen.getByPlaceholderText(/Suburb/i), { target: { value: 'Downtown' } })
-    fireEvent.change(screen.getByPlaceholderText(/City/i), { target: { value: 'City' } })
-    fireEvent.change(screen.getByPlaceholderText(/Postal Code/i), { target: { value: '0000' } })
-    fireEvent.click(screen.getByRole('button', { name: /Submit Payment/i }))
-    
-    expect(await screen.findByText(/Order processing failed: fail/i)).toBeInTheDocument()
-  })
-})
+    fireEvent.click(screen.getByRole('button', { name: /remove/i }));
+    expect(removeFromCart).toHaveBeenCalledWith(item.id);
+  });
+
+  test('Given cart with items, When clicking Proceed to Checkout succeeds, Then checkoutCart is saved and window.open is called', () => {
+    const cart = [{ id: '1', name: 'A', image: '', price: 2, quantity: 1, stock: 5 }];
+    useCart.mockReturnValue({
+      cart,
+      removeFromCart: jest.fn(),
+      updateQuantity: jest.fn(),
+      getTotal: jest.fn().mockReturnValue(2),
+    });
+
+    renderCart();
+    fireEvent.click(screen.getByRole('button', { name: /proceed to checkout/i }));
+
+    expect(JSON.parse(localStorage.getItem('checkoutCart'))).toEqual(cart);
+    expect(window.open).toHaveBeenCalledWith('/checkout', '_blank', 'width=600,height=700');
+  });
+
+  test('Given window.open throws, When clicking Proceed to Checkout, Then show an error alert', () => {
+    const cart = [{ id: '1', name: 'A', image: '', price: 2, quantity: 1, stock: 5 }];
+    useCart.mockReturnValue({
+      cart,
+      removeFromCart: jest.fn(),
+      updateQuantity: jest.fn(),
+      getTotal: jest.fn().mockReturnValue(2),
+    });
+    window.open.mockImplementation(() => { throw new Error('failed'); });
+
+    renderCart();
+    fireEvent.click(screen.getByRole('button', { name: /proceed to checkout/i }));
+
+    expect(window.alert).toHaveBeenCalledWith(
+      'There was an error opening the checkout window. Please try again.'
+    );
+  });
+});
