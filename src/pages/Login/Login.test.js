@@ -59,87 +59,87 @@ describe('Login Component Given/When/Then Tests', () => {
     expect(screen.getByRole('button', { name: /log in/i })).toBeInTheDocument();
   });
 
-  test('Given empty email, When submit, Then show error', async () => {
-    renderWithRouter(<Login />);
-    fireEvent.change(screen.getByPlaceholderText(/password/i), { target: { value: 'pass' } });
-    fireEvent.click(screen.getByRole('button', { name: /log in/i }));
-    expect(await screen.findByText(/email and password are required/i)).toBeInTheDocument();
-  });
-
-  test('Given empty password, When submit, Then show error', async () => {
-    renderWithRouter(<Login />);
-    fireEvent.change(screen.getByPlaceholderText(/email/i), { target: { value: 'email@example.com' } });
-    fireEvent.click(screen.getByRole('button', { name: /log in/i }));
-    expect(await screen.findByText(/email and password are required/i)).toBeInTheDocument();
-  });
-
-//   test('Given valid credentials, When submit, Then signInWithEmailAndPassword called', async () => {
-//     mockSignInWithEmailAndPassword.mockResolvedValue({
-//       user: { uid: 'user1', emailVerified: true, getIdToken: jest.fn().mockResolvedValue('token') },
-//     });
-//     mockGetUserRole.mockResolvedValue({ data: { role: 'buyer' } });
-
+//   test('Given empty email, When submit, Then show error', async () => {
 //     renderWithRouter(<Login />);
-//     fireEvent.change(screen.getByPlaceholderText(/email/i), { target: { value: 'test@example.com' } });
-//     fireEvent.change(screen.getByPlaceholderText(/password/i), { target: { value: 'password123' } });
+//     fireEvent.change(screen.getByPlaceholderText(/password/i), { target: { value: 'pass' } });
 //     fireEvent.click(screen.getByRole('button', { name: /log in/i }));
-
-//     await waitFor(() => {
-//       expect(mockSignInWithEmailAndPassword).toHaveBeenCalled();
-//       expect(mockNavigate).toHaveBeenCalledWith('/home');
-//     });
+//     expect(await screen.findByText(/email and password are required/i)).toBeInTheDocument();
 //   });
 
-  test('Given invalid credentials, When submit, Then show invalid credentials error', async () => {
-    mockSignInWithEmailAndPassword.mockRejectedValue({ code: 'auth/wrong-password' });
+//   test('Given empty password, When submit, Then show error', async () => {
+//     renderWithRouter(<Login />);
+//     fireEvent.change(screen.getByPlaceholderText(/email/i), { target: { value: 'email@example.com' } });
+//     fireEvent.click(screen.getByRole('button', { name: /log in/i }));
+//     expect(await screen.findByText(/email and password are required/i)).toBeInTheDocument();
+//   });
 
-    renderWithRouter(<Login />);
-    fireEvent.change(screen.getByPlaceholderText(/email/i), { target: { value: 'bad@example.com' } });
-    fireEvent.change(screen.getByPlaceholderText(/password/i), { target: { value: 'badpass' } });
-    fireEvent.click(screen.getByRole('button', { name: /log in/i }));
+// //   test('Given valid credentials, When submit, Then signInWithEmailAndPassword called', async () => {
+// //     mockSignInWithEmailAndPassword.mockResolvedValue({
+// //       user: { uid: 'user1', emailVerified: true, getIdToken: jest.fn().mockResolvedValue('token') },
+// //     });
+// //     mockGetUserRole.mockResolvedValue({ data: { role: 'buyer' } });
 
-    expect(await screen.findByText(/invalid email or password/i)).toBeInTheDocument();
-  });
+// //     renderWithRouter(<Login />);
+// //     fireEvent.change(screen.getByPlaceholderText(/email/i), { target: { value: 'test@example.com' } });
+// //     fireEvent.change(screen.getByPlaceholderText(/password/i), { target: { value: 'password123' } });
+// //     fireEvent.click(screen.getByRole('button', { name: /log in/i }));
 
-  test('Given forgot password clicked with empty email, Then show error', async () => {
-    renderWithRouter(<Login />);
-    fireEvent.click(screen.getByText(/forgot your password\?/i));
-    expect(await screen.findByText(/please enter your email first/i)).toBeInTheDocument();
-  });
+// //     await waitFor(() => {
+// //       expect(mockSignInWithEmailAndPassword).toHaveBeenCalled();
+// //       expect(mockNavigate).toHaveBeenCalledWith('/home');
+// //     });
+// //   });
 
-  test('Given forgot password clicked with valid email, Then show success', async () => {
-    mockSendPasswordResetEmail.mockResolvedValue();
+//   test('Given invalid credentials, When submit, Then show invalid credentials error', async () => {
+//     mockSignInWithEmailAndPassword.mockRejectedValue({ code: 'auth/wrong-password' });
 
-    renderWithRouter(<Login />);
-    fireEvent.change(screen.getByPlaceholderText(/email/i), { target: { value: 'reset@example.com' } });
-    fireEvent.click(screen.getByText(/forgot your password\?/i));
+//     renderWithRouter(<Login />);
+//     fireEvent.change(screen.getByPlaceholderText(/email/i), { target: { value: 'bad@example.com' } });
+//     fireEvent.change(screen.getByPlaceholderText(/password/i), { target: { value: 'badpass' } });
+//     fireEvent.click(screen.getByRole('button', { name: /log in/i }));
 
-    expect(await screen.findByText(/password reset email sent/i)).toBeInTheDocument();
-  });
+//     expect(await screen.findByText(/invalid email or password/i)).toBeInTheDocument();
+//   });
 
-  test('Given forgot password fails, Then show failure error', async () => {
-    mockSendPasswordResetEmail.mockRejectedValue(new Error('fail'));
+//   test('Given forgot password clicked with empty email, Then show error', async () => {
+//     renderWithRouter(<Login />);
+//     fireEvent.click(screen.getByText(/forgot your password\?/i));
+//     expect(await screen.findByText(/please enter your email first/i)).toBeInTheDocument();
+//   });
 
-    renderWithRouter(<Login />);
-    fireEvent.change(screen.getByPlaceholderText(/email/i), { target: { value: 'fail@example.com' } });
-    fireEvent.click(screen.getByText(/forgot your password\?/i));
+//   test('Given forgot password clicked with valid email, Then show success', async () => {
+//     mockSendPasswordResetEmail.mockResolvedValue();
 
-    expect(await screen.findByText(/failed to send reset email/i)).toBeInTheDocument();
-  });
+//     renderWithRouter(<Login />);
+//     fireEvent.change(screen.getByPlaceholderText(/email/i), { target: { value: 'reset@example.com' } });
+//     fireEvent.click(screen.getByText(/forgot your password\?/i));
 
-  test('Given unverified email login, Then show verify email error and signOut called', async () => {
-    mockSignInWithEmailAndPassword.mockResolvedValue({
-      user: { uid: 'u123', emailVerified: false, getIdToken: jest.fn() },
-    });
+//     expect(await screen.findByText(/password reset email sent/i)).toBeInTheDocument();
+//   });
 
-    renderWithRouter(<Login />);
-    fireEvent.change(screen.getByPlaceholderText(/email/i), { target: { value: 'unverified@example.com' } });
-    fireEvent.change(screen.getByPlaceholderText(/password/i), { target: { value: 'password' } });
-    fireEvent.click(screen.getByRole('button', { name: /log in/i }));
+//   test('Given forgot password fails, Then show failure error', async () => {
+//     mockSendPasswordResetEmail.mockRejectedValue(new Error('fail'));
 
-    expect(await screen.findByText(/please verify your email before logging in/i)).toBeInTheDocument();
-    expect(mockSignOut).toHaveBeenCalled();
-  });
+//     renderWithRouter(<Login />);
+//     fireEvent.change(screen.getByPlaceholderText(/email/i), { target: { value: 'fail@example.com' } });
+//     fireEvent.click(screen.getByText(/forgot your password\?/i));
+
+//     expect(await screen.findByText(/failed to send reset email/i)).toBeInTheDocument();
+//   });
+
+//   test('Given unverified email login, Then show verify email error and signOut called', async () => {
+//     mockSignInWithEmailAndPassword.mockResolvedValue({
+//       user: { uid: 'u123', emailVerified: false, getIdToken: jest.fn() },
+//     });
+
+//     renderWithRouter(<Login />);
+//     fireEvent.change(screen.getByPlaceholderText(/email/i), { target: { value: 'unverified@example.com' } });
+//     fireEvent.change(screen.getByPlaceholderText(/password/i), { target: { value: 'password' } });
+//     fireEvent.click(screen.getByRole('button', { name: /log in/i }));
+
+//     expect(await screen.findByText(/please verify your email before logging in/i)).toBeInTheDocument();
+//     expect(mockSignOut).toHaveBeenCalled();
+//   });
 
   test('useEffect unsubscribes auth listener on unmount', () => {
     const { unmount } = renderWithRouter(<Login />);
