@@ -180,14 +180,14 @@ exports.makeAdmin = onCall({ cors: true }, async (request) => {
   }
 });
 
-exports.processCheckout = onCall({ cors: true }, async (request) => {
+exports.processCheckout = functions.https.onCall(async (data, context) => {
   const {
     cart,
     deliveryType,
     address,
-  } = request.data;
+  } = data;
 
-  const buyer = request.auth?.token?.email;
+  const buyer = context.auth?.token?.email;
   if (!buyer) throw new Error("User must be logged in");
 
   if (!Array.isArray(cart) || cart.length === 0) {
