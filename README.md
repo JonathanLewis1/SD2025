@@ -4,6 +4,9 @@
 ### Site deployed on Azure
 https://polite-sand-0dd94df1e.6.azurestaticapps.net
 
+### Youtube video of site demonstration
+https://youtu.be/y_N4dtkjw1A
+
 #### Artisan Shop Created by: 
 Jacob Boner – 2612160\
 Jonathan Lewis – 2660425\
