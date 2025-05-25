@@ -40,7 +40,14 @@ const App = () => {
               <Route path="/admin" element={<Admin />} />
               <Route path="/about" element={<About />} />
               <Route path="/cart" element={<Cart />} />
-              <Route path="/checkout" element={<Checkout />} />
+              <Route
+                path="/checkout"
+                element={
+                  <ProtectedRoute allowedRoles={['buyer', 'seller', 'admin']}>
+                    <Checkout />
+                  </ProtectedRoute>
+                }
+              />
 
               {/* Public product detail page */}
               <Route path="/product/:productId" element={<ProductDetail />} />

@@ -17,34 +17,38 @@ const Checkout = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Get cart data from URL parameters
-    const params = new URLSearchParams(window.location.search);
-    const cartData = params.get('cart');
-    console.log('URL search params:', window.location.search);
-    console.log('Cart data from URL:', cartData);
-    
-    if (cartData) {
-      try {
-        const decodedCart = JSON.parse(decodeURIComponent(cartData));
-        console.log('Decoded cart data:', decodedCart);
-        setCart(decodedCart);
-      } catch (err) {
-        console.error('Error parsing cart data:', err);
-        setError('Invalid cart data: ' + err.message);
+    // Get cart data from localStorage
+    try {
+      const cartData = localStorage.getItem('checkoutCart');
+      console.log('Retrieved cart data from localStorage:', cartData);
+      
+      if (cartData) {
+        const parsedCart = JSON.parse(cartData);
+        console.log('Parsed cart data:', parsedCart);
+        setCart(parsedCart);
+        // Clear the checkout cart data from localStorage
+        localStorage.removeItem('checkoutCart');
+      } else {
+        console.log('No cart data found in localStorage');
+        setError('No cart data found');
       }
-    } else {
-      console.log('No cart data found in URL');
-      setError('No cart data found');
+    } catch (err) {
+      console.error('Error reading cart data:', err);
+      setError('Error reading cart data: ' + err.message);
     }
   }, []);
 
   useEffect(() => {
     if (submitted) {
-      window.opener?.location?.assign('/home'); // Redirect main tab
-      clearCart();
-      window.close(); // Close the checkout window
+      if (window.opener) {
+        // Clear cart in parent window
+        window.opener.localStorage.removeItem('cart');
+        window.opener.location.assign('/home');
+      }
+      // Close checkout window
+      window.close();
     }
-  }, [submitted, clearCart]);
+  }, [submitted]);
 
   const validate = () => {
     if (!/^\d{16}$/.test(card)) return 'Card number must be 16 digits.';
@@ -134,7 +138,7 @@ const Checkout = () => {
         {cart.map((item, index) => (
           <div key={index} style={styles.cartItem}>
             <span>{item.name} x {item.quantity}</span>
-            <span>${(item.price * item.quantity).toFixed(2)}</span>
+            <span>R{(item.price * item.quantity).toFixed(2)}</span>
           </div>
         ))}
         <div style={styles.total}>

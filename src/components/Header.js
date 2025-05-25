@@ -51,6 +51,10 @@ export default function Header() {
             <Link to="/buyer-orders" style={styles.navButton}>My Orders</Link>
           )}
 
+          {role !== undefined && role === 'admin' && (
+            <Link to="/admin" style={styles.navButton}>Admin Dashboard</Link>
+          )}
+
           <Link to="/about"         style={styles.navButton}>About Us</Link>
           <Link to="/contact-admin" style={styles.navButton}>Contact</Link>
         </nav>
