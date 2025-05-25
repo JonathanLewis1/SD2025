@@ -1,60 +1,80 @@
-// SellerReport.js
-import React, { useState, useEffect, forwardRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { db } from '../../firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { exportToCSV } from './exportCSV';
 
-const SellerReport = forwardRef(({ userEmail }, ref) => {
+import Container from '../../components/common/Container';
+import Header from '../../components/common/Header';
+import TableWrapper from '../../components/common/TableWrapper';
+import Button from '../../components/common/Button';
+
+export default function SellerReport({ userEmail }) {
   const [inventoryData, setInventoryData] = useState([]);
 
   useEffect(() => {
-    if (userEmail) fetchInventoryData();
+    if (userEmail) fetchData();
   }, [userEmail]);
 
-  const fetchInventoryData = async () => {
-    try {
-      const q = query(collection(db, 'products'), where('email', '==', userEmail));
-      const snapshot = await getDocs(q);
-      setInventoryData(snapshot.docs.map(doc => doc.data()));
-    } catch (err) {
-      console.error('Error fetching inventory:', err.message);
-    }
+  const fetchData = async () => {
+    const snap = await getDocs(
+      query(collection(db, 'products'), where('email', '==', userEmail))
+    );
+    setInventoryData(snap.docs.map(d => d.data()));
   };
 
-  const renderTable = (data, headers) => (
-    <table border="1" cellPadding="8" style={{ marginTop: '1rem', width: '100%' }}>
-      <thead><tr>{headers.map(h => <th key={h}>{h}</th>)}</tr></thead>
-      <tbody>{data.map((row, i) => (
-        <tr key={i}>{headers.map(h => <td key={h}>{row[h]}</td>)}</tr>
-      ))}</tbody>
-    </table>
-  );
+  const columns = [
+    { key: 'name', label: 'Name' },
+    { key: 'stock', label: 'Quantity' },
+    { key: 'price', label: 'Price (R)' },
+    { key: 'description', label: 'Description' }
+  ];
 
   return (
-    <div ref={ref} id="seller-report" style={{ marginTop: 32, width: '100%' }}>
-      <h2>Dashboard Reports</h2>
-      <h3>Inventory Status</h3>
-      {renderTable(
-        inventoryData.map(p => ({
-          name: p.name,
-          quantity: p.stock,
-          price: p.price,
-          description: p.description
-        })),
-        ['name', 'quantity', 'price', 'description']
-      )}
-      <button onClick={() => exportToCSV(
-        inventoryData.map(p => ({
-          name: p.name,
-          quantity: p.stock,
-          price: p.price,
-          description: p.description,
-          imageUrl: p.image
-        })),
-        `${userEmail}_Inventory`
-      )}>Export as CSV</button>
-    </div>
+    <Container styleProps={{maxWidth: 1000, margin: '0 auto' }}>
+      <Header level={2}>Inventory Status</Header>
+      <TableWrapper>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>
+              {columns.map(col => (
+                <th
+                  key={col.key}
+                  style={{ border: '1px solid #ccc', padding: 8, background: '#f0f0f0' }}
+                >
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {inventoryData.map((p, i) => (
+              <tr key={i}>
+                {columns.map(col => (
+                  <td key={col.key} style={{ border: '1px solid #ccc', padding: 8 }}>
+                    {p[col.key]}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </TableWrapper>
+      <Button
+        onClick={() =>
+          exportToCSV(
+            inventoryData.map(p => ({
+              Name: p.name,
+              Quantity: p.stock,
+              'Price (R)': p.price,
+              Description: p.description
+            })),
+            `${userEmail}_INVENTORY`
+          )
+        }
+        styleProps={{ marginTop: 8 }}
+      >
+        Export CSV
+      </Button>
+    </Container>
   );
-});
-
-export default SellerReport;
+}

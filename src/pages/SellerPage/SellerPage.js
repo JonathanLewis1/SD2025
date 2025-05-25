@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { db, auth } from '../../firebase';
 import {
   collection,
@@ -11,13 +11,20 @@ import {
   updateDoc
 } from 'firebase/firestore';
 import { onAuthStateChanged } from 'firebase/auth';
+
+import Container from '../../components/common/Container';
+import Header from '../../components/common/Header';
+import Section from '../../components/common/Section';
+import Card from '../../components/common/Card';
+import Button from '../../components/common/Button';
+import TextInput from '../../components/common/TextInput';
+
 import SellerReport from './SellerReport';
 import OrderReport from './OrderReport';
-import { useRef } from 'react';
 
-const SellerPage = () => {
-  const [stockEdits, setStockEdits] = useState({});
+export default function SellerPage() {
   const [products, setProducts] = useState([]);
+  const [stockEdits, setStockEdits] = useState({});
   const [form, setForm] = useState({
     name: '',
     price: '',
@@ -27,196 +34,203 @@ const SellerPage = () => {
   });
   const [error, setError] = useState('');
   const [userEmail, setUserEmail] = useState(null);
+  const reportRef = useRef(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user && user.email) {
+    const unsub = onAuthStateChanged(auth, user => {
+      if (user?.email) {
         setUserEmail(user.email);
         fetchProducts(user.email);
       }
     });
-    return () => unsubscribe();
+    return () => unsub();
   }, []);
 
-  const fetchProducts = async (email) => {
-    try {
-      const q = query(collection(db, 'products'), where('email', '==', email));
-      const snapshot = await getDocs(q);
-      const items = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setProducts(items);
-    } catch (err) {
-      console.error('Error fetching products:', err.message);
-    }
+  const fetchProducts = async email => {
+    const snap = await getDocs(
+      query(collection(db, 'products'), where('email', '==', email))
+    );
+    setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
   };
 
-  const handleUpload = async (e) => {
+  const handleUpload = async e => {
     e.preventDefault();
-
-    if (!userEmail) return setError('You must be logged in to add a product.');
-    if (!form.name || !form.price || !form.description || !form.imageUrl || !form.category) {
+    setError('');
+    const { name, price, description, imageUrl, category } = form;
+    if (!name || !price || !description || !imageUrl || !category) {
       return setError('All fields are required.');
     }
-
+    const priceNum = parseFloat(price);
+    if (isNaN(priceNum) || priceNum <= 0) {
+      return setError('Price must be a number greater than zero.');
+    }
+    if (!userEmail) {
+      return setError('Please log in first.');
+    }
     try {
       await addDoc(collection(db, 'products'), {
-        name: form.name,
-        price: parseFloat(form.price),
-        description: form.description,
-        image: form.imageUrl,
-        category: form.category,
+        name,
+        price: priceNum,
+        description,
+        image: imageUrl,
+        category,
         email: userEmail,
         dateAdded: new Date().toISOString(),
         stock: 1
       });
-
       setForm({ name: '', price: '', description: '', imageUrl: '', category: '' });
-      setError('');
       fetchProducts(userEmail);
-    } catch (error) {
-      console.error("Error adding product:", error.message);
-      alert("Failed to add product: " + error.message);
+      alert('Product added successfully!');
+    } catch (err) {
+      setError('Failed to add product: ' + err.message);
     }
   };
 
-  const updateStock = async (productId, newStock) => {
+  const updateStock = async (id, newStockValue) => {
+    const qtyNum = parseInt(newStockValue, 10);
+    if (isNaN(qtyNum) || qtyNum < 0) {
+      alert('Quantity must be an integer greater than zero.');
+      return;
+    }
     try {
-      const productRef = doc(db, 'products', productId);
-      await updateDoc(productRef, { stock: parseInt(newStock) });
-      if (userEmail) fetchProducts(userEmail);
-    } catch (error) {
-      console.error('Error updating stock:', error.message);
+      await updateDoc(doc(db, 'products', id), { stock: qtyNum });
+      fetchProducts(userEmail);
+      alert('Stock updated successfully!');
+    } catch (err) {
+      setError('Failed to update stock: ' + err.message);
     }
   };
 
-  const deleteProduct = async (productId) => {
+  const deleteProduct = async id => {
     try {
-      await deleteDoc(doc(db, 'products', productId));
-      if (userEmail) fetchProducts(userEmail);
-    } catch (error) {
-      console.error("Error deleting product:", error.message);
+      await deleteDoc(doc(db, 'products', id));
+      fetchProducts(userEmail);
+      alert('Product deleted successfully!');
+    } catch (err) {
+      setError('Failed to delete product: ' + err.message);
     }
   };
 
-  const reportRef = useRef(null);
-  const ordersRef = useRef(null);
-
-  const scrollTo = (ref) => {
-    if (ref.current) ref.current.scrollIntoView({ behavior: 'smooth' });
+  const scrollToReports = () => {
+    reportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
   return (
-    <div style={styles.container}>
-      <div style={{ display: 'flex', gap: 16, marginBottom: 24 }}>
-    <button onClick={() => scrollTo(reportRef)}>Go to Dashboard Reports</button>
-      </div>
-      <h1>Add Product</h1>
-      <form onSubmit={handleUpload} noValidate style={styles.form}>
-        <input placeholder="Name" value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} style={styles.input} required />
-        <input type="number" placeholder="Price" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} style={styles.input} required />
-        <textarea placeholder="Description" value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} style={styles.input} required />
-        <input type="text" placeholder="Image URL" value={form.imageUrl} onChange={e => setForm({ ...form, imageUrl: e.target.value })} style={styles.input} required />
-        <select value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} style={styles.input} required>
-          <option value="">Select a Category</option>
-          <option value="Jewelry">Jewelry</option>
-          <option value="Clothing">Clothing</option>
-          <option value="Home Decor">Home Decor</option>
-          <option value="Woodwork">Woodwork</option>
-        </select>
-        <button type="submit" style={styles.button}>Add Product</button>
-      </form>
-      {error && <p style={{ color: 'red' }}>{error}</p>}
+    <Container>
+      <Button
+        onClick={scrollToReports}
+        styleProps={{
+          backgroundColor: '#10b981',
+          padding: '16px 20px',
+          fontSize: 18,
+          marginBottom: 24
+        }}
+      >
+        Go to Dashboard Reports
+      </Button>
 
-      <h1>My Products</h1>
-      <div style={styles.productGrid}>
+      <Header level={1}>Add Product</Header>
+      <Section>
+        <form
+          onSubmit={handleUpload}
+          noValidate
+          style={{ display: 'flex', flexDirection: 'column', gap: 20 }}
+        >
+          <TextInput
+            placeholder="Name"
+            value={form.name}
+            onChange={e => setForm({ ...form, name: e.target.value })}
+            required
+          />
+          <TextInput
+            type="number"
+            placeholder="Price"
+            value={form.price}
+            onChange={e => setForm({ ...form, price: e.target.value })}
+            required
+          />
+          <TextInput
+            as="textarea"
+            placeholder="Description"
+            value={form.description}
+            onChange={e => setForm({ ...form, description: e.target.value })}
+            required
+          />
+          <TextInput
+            placeholder="Image URL"
+            value={form.imageUrl}
+            onChange={e => setForm({ ...form, imageUrl: e.target.value })}
+            required
+          />
+          <TextInput
+            as="select"
+            value={form.category}
+            onChange={e => setForm({ ...form, category: e.target.value })}
+            required
+          >
+            <option value="">Select Category</option>
+            <option>Jewelry</option>
+            <option>Clothing</option>
+            <option>Home Decor</option>
+            <option>Woodwork</option>
+          </TextInput>
+          <Button type="submit" styleProps={{ alignSelf: 'flex-start' }}>
+            Add Product
+          </Button>
+        </form>
+        {error && <p style={{ color: 'red', marginTop: 8 }}>{error}</p>}
+      </Section>
+
+      <Header level={1} styleProps={{ marginTop: 48 }}>
+        My Products
+      </Header>
+      <Section
+        styleProps={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: 16
+        }}
+      >
         {products.map(prod => (
-          <div key={prod.id} style={styles.card}>
+          <Card key={prod.id}>
             <img src={prod.image} alt={prod.name} width={150} />
             <h3>{prod.name}</h3>
-            <p>Price: R{prod.price}</p>
+            <p>R{prod.price}</p>
             <p>{prod.description}</p>
             <p>Category: {prod.category}</p>
             <p>
               Stock:{' '}
-              <input
+              <TextInput
                 type="number"
-                min="0"
                 value={stockEdits[prod.id] ?? prod.stock}
-                onChange={(e) => setStockEdits({ ...stockEdits, [prod.id]: e.target.value })}
-                style={{ width: 60 }}
+                onChange={e =>
+                  setStockEdits({ ...stockEdits, [prod.id]: e.target.value })
+                }
+                styleProps={{ width: 60, borderRadius: 4, padding: '4px' }}
               />
-              <button onClick={() => updateStock(prod.id, stockEdits[prod.id] ?? prod.stock)} style={styles.button2}>Save</button>
+              <Button
+                onClick={() =>
+                  updateStock(prod.id, stockEdits[prod.id] ?? prod.stock)
+                }
+                styleProps={{ marginLeft: 8 }}
+              >
+                Save
+              </Button>
             </p>
-            <button onClick={() => deleteProduct(prod.id)} style={styles.button}>Delete</button>
-          </div>
+            <Button onClick={() => deleteProduct(prod.id)} styleProps={{ marginTop: 8 }}>
+              Delete
+            </Button>
+          </Card>
         ))}
-      </div>
+      </Section>
 
-      {userEmail && <SellerReport ref={reportRef} userEmail={userEmail} />}
-      {userEmail && <OrderReport userEmail={userEmail} />}
-    </div>
+      <Section ref={reportRef} styleProps={{ marginTop: 48 }}>
+        <Header level={1}>Dashboard Reports</Header>
+      </Section>
+      <Section styleProps={{ maxWidth: 1000, margin: '0 auto' }}>
+        <SellerReport userEmail={userEmail} />
+        <OrderReport userEmail={userEmail} />
+      </Section>
+    </Container>
   );
-};
-
-const styles = {
-  card: {
-    border: '1px solid #ccc',
-    borderRadius: 10,
-    padding: 16,
-    cursor: 'pointer',
-    width: 200,
-    backgroundColor: '#f9f9f9',
-  },
-  container: {
-    backgroundColor: '#feffdf',
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    flexDirection: 'column',
-    padding: 32,
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 16,
-  },
-  input: {
-    backgroundColor: '#ffffff',
-    padding: '12px 16px',
-    borderRadius: 24,
-    border: '1px solid #2a2a2a',
-    fontSize: 14,
-    outline: 'none',
-  },
-  button: {
-    backgroundColor: '#3b82f6',
-    color: '#ffffff',
-    padding: '12px 16px',
-    border: 'none',
-    borderRadius: 12,
-    fontWeight: 500,
-    fontSize: 16,
-    cursor: 'pointer',
-    marginTop: 8,
-  },
-  button2: {
-    backgroundColor: '#3b82f6',
-    color: '#ffffff',
-    padding: '8px 10px',
-    border: 'none',
-    borderRadius: 12,
-    fontWeight: 500,
-    fontSize: 16,
-    cursor: 'pointer',
-    marginTop: 8,
-    marginLeft: 8,
-  },
-  productGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: 16,
-    width: '100%',
-    maxWidth: 1000,
-  },
-};
-
-export default SellerPage;
+}

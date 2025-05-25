@@ -1,133 +1,230 @@
-// OrderReport.js
-import React, { useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { db } from '../../firebase';
 import { collection, query, where, getDocs } from 'firebase/firestore';
 import { exportToCSV } from './exportCSV';
 
-const OrderReport = ({ userEmail }) => {
-  const [orders, setOrders] = useState([]);
-  const [filtered, setFiltered] = useState([]);
-  const [tab, setTab] = useState('orders');
-  const [statusFilter, setStatusFilter] = useState('All');
-  const [sales, setSales] = useState([]);
-  const [error, setError] = useState(null);
+import Container from '../../components/common/Container';
+import Header from '../../components/common/Header';
+import Section from '../../components/common/Section';
+import TableWrapper from '../../components/common/TableWrapper';
+import Button from '../../components/common/Button';
+import TextInput from '../../components/common/TextInput';
+
+export default function OrderReport({ userEmail }) {
+  const [items, setItems] = useState([]);
+  const [salesTrends, setSalesTrends] = useState([]);
+  const [filterStatus, setFilterStatus] = useState('All');
+  const [filterType, setFilterType] = useState('All');
+  const [searchProduct, setSearchProduct] = useState('');
+  const [filterStart, setFilterStart] = useState('');
+  const [filterEnd, setFilterEnd] = useState('');
 
   useEffect(() => {
-    if (userEmail) loadOrders();
-  }, [userEmail]);
-
-  const loadOrders = async () => {
-    try {
-      // Fetch all orders and filter client-side to avoid permission issues on query
-      const snap = await getDocs(collection(db, 'orders'));
-      const items = [];
-      const daily = {};
-
-      snap.docs.forEach(docSnap => {
-        const d = docSnap.data();
-        const { products, quantity, Price, sellersEmails, timestamp, DeliveryStatus } = d;
-        sellersEmails.forEach((email, i) => {
-          if (email === userEmail) {
-            const orderItem = {
-              id: `${docSnap.id}-${i}`,
-              product: d.productNames?.[i] || products[i],
-              quantity: quantity[i],
-              price: Price[i],
-              status: DeliveryStatus,
-              date: new Date(timestamp).toLocaleDateString(),
-            };
-            items.push(orderItem);
-            daily[orderItem.date] = (daily[orderItem.date] || 0) + orderItem.quantity;
-          }
+    const fetchAndFlatten = async () => {
+      if (!userEmail) return;
+      const snap = await getDocs(
+        query(collection(db, 'orders'), where('sellersEmails', 'array-contains', userEmail))
+      );
+      const all = [];
+      snap.docs.forEach(d => {
+        const o = d.data();
+        const {
+          products = [], quantity = [], Price = [], sellersEmails = [],
+          DeliveryStatus: status, DeliveryType: type,
+          StreetName: street, suburb, postalCode: postal,
+          city, timestamp
+        } = o;
+        const tsISO = timestamp?.seconds
+          ? new Date(timestamp.seconds * 1000).toISOString()
+          : '';
+        products.forEach((prod, i) => {
+          if (sellersEmails[i] !== userEmail) return;
+          const unit = Number(Price[i] || 0), qty = Number(quantity[i] || 0);
+          all.push({
+            ID: d.id,
+            TIMESTAMP: tsISO.replace('T', ' ').slice(0, 19),
+            PRODUCT: prod,
+            UNITPRICE: unit,
+            QUANTITY: qty,
+            SUBTOTAL: unit * qty,
+            DELIVERYSTATUS: status,
+            DELIVERYTYPE: type,
+            STREETNAME: street,
+            POSTALCODE: postal,
+            SUBURB: suburb,
+            CITY: city
+          });
         });
       });
+      setItems(all);
+    };
+    fetchAndFlatten();
+  }, [userEmail]);
 
-      setOrders(items);
-      setFiltered(items);
-      setSales(Object.entries(daily).map(([date, qty]) => ({ date, qty })));
-      setError(null);
-    } catch (err) {
-      console.error('Error fetching orders:', err);
-      setError('Unable to load orders. Check your Firestore rules and authentication.');
-    }
-  };
+  useEffect(() => {
+    const byDay = {};
+    items.forEach(it => {
+      const day = it.TIMESTAMP.slice(0, 10);
+      byDay[day] = (byDay[day] || 0) + it.SUBTOTAL;
+    });
+    setSalesTrends(
+      Object.entries(byDay)
+        .map(([date, total]) => ({ date, total }))
+        .sort((a, b) => a.date.localeCompare(b.date))
+    );
+  }, [items]);
 
-  const applyFilter = status => {
-    setStatusFilter(status);
-    setFiltered(status === 'All' ? orders : orders.filter(o => o.status === status));
-  };
+  const statuses = ['All', ...new Set(items.map(i => i.DELIVERYSTATUS))];
+  const types = ['All', ...new Set(items.map(i => i.DELIVERYTYPE))];
 
-  const renderCards = items => (
-    <div style={{ display: 'grid', gap: 16, gridTemplateColumns: 'repeat(auto-fill,minmax(220px,1fr))' }}>
-      {items.map(o => (
-        <div key={o.id} style={{ border: '1px solid #ccc', borderRadius: 8, padding: 16, background: '#fff' }}>
-          <h4>{o.product}</h4>
-          <p><strong>Qty:</strong> {o.quantity}</p>
-          <p><strong>Price:</strong> R{o.price}</p>
-          <p><strong>Status:</strong> {o.status}</p>
-          <p><strong>Date:</strong> {o.date}</p>
-        </div>
-      ))}
-    </div>
+  const filtered = items.filter(i => {
+    if (filterStatus !== 'All' && i.DELIVERYSTATUS !== filterStatus) return false;
+    if (filterType   !== 'All' && i.DELIVERYTYPE   !== filterType)   return false;
+    if (searchProduct && !i.PRODUCT.toLowerCase().includes(searchProduct.toLowerCase())) return false;
+    if (filterStart && i.TIMESTAMP.slice(0,10) < filterStart) return false;
+    if (filterEnd   && i.TIMESTAMP.slice(0,10) > filterEnd)   return false;
+    return true;
+  });
+
+  const renderTable = (data, columns) => (
+    <TableWrapper>
+      <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+        <thead>
+          <tr>
+            {columns.map(col => (
+              <th key={col.key} style={{ border: '1px solid #ccc', padding: 8, background: '#f0f0f0' }}>
+                {col.label}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {data.map((row, idx) => (
+            <tr key={idx}>
+              {columns.map(col => (
+                <td key={col.key} style={{ border: '1px solid #ccc', padding: 8 }}>
+                  {row[col.key]}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </TableWrapper>
   );
 
-  const renderTable = (data, cols) => (
-    <table border="1" cellPadding="8" style={{ width: '100%', marginTop: 16 }}>
-      <thead><tr>{cols.map(c => <th key={c}>{c}</th>)}</tr></thead>
-      <tbody>
-        {data.map((row, i) => (
-          <tr key={i}>{cols.map(c => <td key={c}>{row[c.toLowerCase()] ?? row[c]}</td>)}</tr>
-        ))}
-      </tbody>
-    </table>
-  );
-
-  if (error) return <p style={{ color: 'red', marginTop: 32 }}>{error}</p>;
+  // Slim auto-width style
+  const slim = { padding: '4px 8px', borderRadius: 4, fontSize: 14, width: 'auto' };
 
   return (
-    <div id="order-report" style={{ marginTop: 32, width: '100%' }}>
-      <h2>Seller Orders Report</h2>
-      <div style={{ display: 'flex', gap: 8, marginBottom: 16 }}>
-        <button onClick={() => setTab('orders')}>Orders</button>
-        <button onClick={() => setTab('sales')}>Sales Trends</button>
-        <button onClick={() => setTab('custom')}>Custom View</button>
-      </div>
-
-      {tab === 'orders' && (
+    <Container styleProps={{ maxWidth: 1000, margin: '0 auto' }}>
+      <Header level={2}>Sales Trends</Header>
+      {salesTrends.length > 0 ? (
         <>
-          <div style={{ marginBottom: 8 }}>
-            {['All','Pending','Delivered','Cancelled'].map(s => (
-              <button key={s} onClick={() => applyFilter(s)} style={{ marginRight: 8 }}>{s}</button>
-            ))}
-            <button onClick={() => exportToCSV(filtered, `${userEmail}_Orders`)}>Export Orders CSV</button>
-          </div>
-          {filtered.length ? renderCards(filtered) : <p>No orders to display.</p>}
-        </>
-      )}
-
-      {tab === 'sales' && (
-        <div>
-          <h3>Sales Trends (by day)</h3>
-          {sales.length
-            ? (
-              <>
-                {renderTable(sales, ['date','qty'])}
-                <button onClick={() => exportToCSV(sales, `${userEmail}_Sales`)} style={{ marginTop: 8 }}>Export Sales CSV</button>
-              </>
+          {renderTable(salesTrends, [
+            { key: 'date',  label: 'Date' },
+            { key: 'total', label: 'Total (R)' }
+          ])}
+          <Button onClick={() =>
+            exportToCSV(
+              salesTrends.map(r => ({ Date: r.date, Total: r.total })),
+              `${userEmail}_SALES_TRENDS`
             )
-            : <p>No sales data.</p>
-          }
-        </div>
+          } styleProps={{ marginTop: 8 }}>
+            Export CSV
+          </Button>
+        </>
+      ) : (
+        <p>No sales data yet.</p>
       )}
 
-      {tab === 'custom' && (
-        <div>
-          <h3>Custom View</h3>
-          <p>Coming soon: add date‐range or product filters here.</p>
-        </div>
+      <Header level={2} styleProps={{ marginTop: 55 }}>Custom View</Header>
+      <Section styleProps={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: 12,
+        flexWrap: 'nowrap',
+        overflowX: 'auto',
+        marginBottom: 16
+      }}>
+        <TextInput
+          as="select"
+          value={filterStatus}
+          onChange={e => setFilterStatus(e.target.value)}
+          styleProps={slim}
+        >
+          {statuses.map(s => <option key={s}>{s}</option>)}
+        </TextInput>
+        <TextInput
+          as="select"
+          value={filterType}
+          onChange={e => setFilterType(e.target.value)}
+          styleProps={slim}
+        >
+          {types.map(t => <option key={t}>{t}</option>)}
+        </TextInput>
+        <TextInput
+          placeholder="Search product..."
+          value={searchProduct}
+          onChange={e => setSearchProduct(e.target.value)}
+          styleProps={{ ...slim, minWidth: 80 }}
+        />
+        <TextInput
+          type="date"
+          value={filterStart}
+          onChange={e => setFilterStart(e.target.value)}
+          styleProps={slim}
+        />
+        <TextInput
+          type="date"
+          value={filterEnd}
+          onChange={e => setFilterEnd(e.target.value)}
+          styleProps={slim}
+        />
+      </Section>
+
+      {filtered.length > 0 ? (
+        <>
+          {renderTable(filtered, [
+            { key: 'ID',         label: 'ID' },
+            { key: 'TIMESTAMP',  label: 'Timestamp' },
+            { key: 'PRODUCT',    label: 'Product' },
+            { key: 'UNITPRICE',  label: 'UnitPrice (R)' },
+            { key: 'QUANTITY',   label: 'Quantity' },
+            { key: 'SUBTOTAL',   label: 'Subtotal (R)' },
+            { key: 'DELIVERYSTATUS', label: 'DeliveryStatus' },
+            { key: 'DELIVERYTYPE',   label: 'DeliveryType' },
+            { key: 'STREETNAME', label: 'StreetName' },
+            { key: 'POSTALCODE', label: 'PostalCode' },
+            { key: 'SUBURB',     label: 'Suburb' },
+            { key: 'CITY',       label: 'City' }
+          ])}
+          <Button onClick={() =>
+            exportToCSV(
+              filtered.map(i => ({
+                ID: i.ID,
+                Timestamp: i.TIMESTAMP,
+                Product: i.PRODUCT,
+                'UnitPrice (R)': i.UNITPRICE,
+                Quantity: i.QUANTITY,
+                'Subtotal (R)': i.SUBTOTAL,
+                DeliveryStatus: i.DELIVERYSTATUS,
+                DeliveryType: i.DELIVERYTYPE,
+                StreetName: i.STREETNAME,
+                PostalCode: i.POSTALCODE,
+                Suburb: i.SUBURB,
+                City: i.CITY
+              })),
+              `${userEmail}_CUSTOM_ORDERS`
+            )
+          } styleProps={{ marginTop: 8 }}>
+            Export CSV
+          </Button>
+        </>
+      ) : (
+        <p>No matching items.</p>
       )}
-    </div>
+    </Container>
   );
-};
+}
 
-export default OrderReport;
