@@ -1,10 +1,15 @@
-<<<<<<< HEAD
 ### Codecov badge
 [![Coverage](https://img.shields.io/codecov/c/github/JonathanLewis1/SD2025?branch=master)](https://codecov.io/gh/JonathanLewis1/SD2025)
 
-
 ### Site deployed on Azure
 https://polite-sand-0dd94df1e.6.azurestaticapps.net
+
+#### Artisan Shop Created by: 
+Jacob Boner – 2612160\
+Jonathan Lewis – 2660425\
+Aharon Zagnoev – 2282203\
+Carl Germishuys – 1844398\
+Jake Shapiro - 2551264
 
 # Getting Started with Create React App
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
@@ -74,12 +79,3 @@ This section has moved here: [https://facebook.github.io/create-react-app/docs/d
 ### `npm run build` fails to minify
 
 This section has moved here: [https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify](https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify)
-=======
-## Code coverage
-
-[![Coverage](https://img.shields.io/codecov/c/github/JonathanLewis1/SD2025?branch=master)](https://codecov.io/gh/JonathanLewis1/SD2025)
-
-## Azure deployment
-
-https://polite-sand-0dd94df1e.6.azurestaticapps.net
->>>>>>> 6d72f92f14f99de753cf6d26193f02253a63bdf5
