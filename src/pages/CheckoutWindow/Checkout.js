@@ -143,15 +143,15 @@ const handleSubmit = async () => {
         <Card styleProps={{ maxWidth: 500, margin: '0 auto' }}>
           <Header level={2}>Order Summary</Header>
           {cart.map((item, index) => (
-            <div key={index} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+            <Section key={index} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <span>{item.name} x {item.quantity}</span>
               <span>R{(item.price * item.quantity).toFixed(2)}</span>
-            </div>
+            </Section>
           ))}
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, fontWeight: 'bold' }}>
+          <Section style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, fontWeight: 'bold' }}>
             <span>Total:</span>
             <span>R{cart.reduce((sum, item) => sum + item.price * item.quantity, 0).toFixed(2)}</span>
-          </div>
+          </Section>
         </Card>
       </Section>
 
