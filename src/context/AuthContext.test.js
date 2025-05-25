@@ -1,102 +1,188 @@
 // src/context/AuthContext.test.js
+
 import React from 'react';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, act } from '@testing-library/react';
 import { AuthProvider, useAuth } from './AuthContext';
 import { onAuthStateChanged } from 'firebase/auth';
 import { httpsCallable } from 'firebase/functions';
+import { auth, functions } from '../firebase';
 
+// Mocks
 jest.mock('firebase/auth', () => ({
   onAuthStateChanged: jest.fn()
 }));
-
 jest.mock('firebase/functions', () => ({
   httpsCallable: jest.fn()
 }));
+jest.mock('../firebase', () => ({
+  auth: {},
+  functions: {}
+}));
 
-const mockUser = { email: 'user@example.com' };
-const mockGetUserRole = jest.fn();
-
-const TestComponent = () => {
-  const { user, userRole, loading, error } = useAuth();
+// A helper component that displays context values
+function DisplayAuth() {
+  const { user, userRole, loading, error, isCheckingRole } = useAuth();
   return (
     <div>
-      <div data-testid="user">{user?.email}</div>
-      <div data-testid="role">{userRole}</div>
-      <div data-testid="loading">{loading.toString()}</div>
-      <div data-testid="error">{error}</div>
+      <span data-testid="user">{user ? user.email : 'null'}</span>
+      <span data-testid="role">{userRole ?? 'null'}</span>
+      <span data-testid="loading">{loading.toString()}</span>
+      <span data-testid="error">{error ?? 'null'}</span>
+      <span data-testid="checking">{isCheckingRole.toString()}</span>
     </div>
   );
-};
+}
 
-describe('AuthContext', () => {
+describe('AuthProvider and useAuth', () => {
   beforeEach(() => {
+    jest.useFakeTimers();
     jest.clearAllMocks();
-    httpsCallable.mockReturnValue(mockGetUserRole);
   });
 
-  test('renders null user when unauthenticated', async () => {
-    onAuthStateChanged.mockImplementationOnce((auth, cb) => cb(null));
-
-    render(
-      <AuthProvider>
-        <TestComponent />
-      </AuthProvider>
-    );
-
-    await waitFor(() => {
-      expect(screen.getByTestId('user').textContent).toBe('');
-      expect(screen.getByTestId('role').textContent).toBe('');
-      expect(screen.getByTestId('loading').textContent).toBe('false');
-    });
+  afterEach(() => {
+    jest.runOnlyPendingTimers();
+    jest.useRealTimers();
   });
 
-  test('sets user and role when authenticated and role returned', async () => {
-    onAuthStateChanged.mockImplementationOnce((auth, cb) => cb(mockUser));
-    mockGetUserRole.mockResolvedValue({ data: { role: 'buyer' } });
-
+  function setup(onChangeImplementation) {
+    onAuthStateChanged.mockImplementation(onChangeImplementation);
     render(
       <AuthProvider>
-        <TestComponent />
+        <DisplayAuth />
       </AuthProvider>
     );
+  }
 
-    await waitFor(() => {
-      expect(screen.getByTestId('user').textContent).toBe('user@example.com');
-      expect(screen.getByTestId('role').textContent).toBe('buyer');
-      expect(screen.getByTestId('loading').textContent).toBe('false');
+  test('Given no user, When auth state reports null, Then loading→false, user & role null, no error', async () => {
+    setup((_, cb) => {
+      cb(null);
+      return () => {};
     });
+
+    // advance both timers (effect and role-check)
+    await act(async () => {
+      jest.runAllTimers();
+    });
+
+    expect(screen.getByTestId('user').textContent).toBe('null');
+    expect(screen.getByTestId('role').textContent).toBe('null');
+    expect(screen.getByTestId('loading').textContent).toBe('false');
+    expect(screen.getByTestId('error').textContent).toBe('null');
+    expect(screen.getByTestId('checking').textContent).toBe('false');
   });
 
-  test('shows error when role is missing', async () => {
-    onAuthStateChanged.mockImplementationOnce((auth, cb) => cb(mockUser));
-    mockGetUserRole.mockResolvedValue({ data: {} });
+  test('Given valid user and valid role, Then userRole set and no error', async () => {
+    const fakeUser = { email: 'a@b.com' };
+    const fakeFn = jest.fn().mockResolvedValue({ data: { role: 'buyer' } });
+    httpsCallable.mockReturnValue(fakeFn);
 
-    render(
-      <AuthProvider>
-        <TestComponent />
-      </AuthProvider>
-    );
-
-    await waitFor(() => {
-      expect(screen.getByTestId('error').textContent).toMatch(/no role in response/i);
+    setup((_, cb) => {
+      cb(fakeUser);
+      return () => {};
     });
+
+    await act(async () => {
+      jest.runAllTimers();
+      await fakeFn();
+    });
+
+    expect(screen.getByTestId('user').textContent).toBe('a@b.com');
+    expect(screen.getByTestId('role').textContent).toBe('buyer');
+    expect(screen.getByTestId('loading').textContent).toBe('false');
+    expect(screen.getByTestId('error').textContent).toBe('null');
+    expect(screen.getByTestId('checking').textContent).toBe('false');
   });
 
-  test('shows error when callable throws error', async () => {
-    onAuthStateChanged.mockImplementationOnce((auth, cb) => cb(mockUser));
-    mockGetUserRole.mockRejectedValue({
-      message: 'Internal error',
-      code: 'internal'
+  test('Given getUserRole returns no data, Then error "Failed to verify user role: No data received"', async () => {
+    const fakeUser = { email: 'x@y.com' };
+    const fakeFn = jest.fn().mockResolvedValue({ data: null });
+    httpsCallable.mockReturnValue(fakeFn);
+
+    setup((_, cb) => { cb(fakeUser); return () => {}; });
+
+    await act(async () => {
+      jest.runAllTimers();
+      await fakeFn();
     });
 
-    render(
-      <AuthProvider>
-        <TestComponent />
-      </AuthProvider>
-    );
+    expect(screen.getByTestId('error').textContent).toBe('Failed to verify user role: No data received');
+  });
 
-    await waitFor(() => {
-      expect(screen.getByTestId('error').textContent).toMatch(/error fetching user role/i);
+  test('Given getUserRole returns data without role, Then error "Failed to verify user role: No role in response"', async () => {
+    const fakeUser = { email: 'u@v.com' };
+    const fakeFn = jest.fn().mockResolvedValue({ data: { foo: 'bar' } });
+    httpsCallable.mockReturnValue(fakeFn);
+
+    setup((_, cb) => { cb(fakeUser); return () => {}; });
+
+    await act(async () => {
+      jest.runAllTimers();
+      await fakeFn();
     });
+
+    expect(screen.getByTestId('error').textContent).toBe('Failed to verify user role: No role in response');
+  });
+
+  test('Given getUserRole returns invalid role, Then error "Invalid user role: hacker"', async () => {
+    const fakeUser = { email: 'p@q.com' };
+    const fakeFn = jest.fn().mockResolvedValue({ data: { role: 'hacker' } });
+    httpsCallable.mockReturnValue(fakeFn);
+
+    setup((_, cb) => { cb(fakeUser); return () => {}; });
+
+    await act(async () => {
+      jest.runAllTimers();
+      await fakeFn();
+    });
+
+    expect(screen.getByTestId('error').textContent).toBe('Invalid user role: hacker');
+  });
+
+  test('Given getUserRole throws not-found, Then error "User profile not found"', async () => {
+    const fakeUser = { email: 'n@o.com' };
+    const err = Object.assign(new Error('oops'), { code: 'not-found' });
+    const fakeFn = jest.fn().mockRejectedValue(err);
+    httpsCallable.mockReturnValue(fakeFn);
+
+    setup((_, cb) => { cb(fakeUser); return () => {}; });
+
+    await act(async () => {
+      jest.runAllTimers();
+      try { await fakeFn(); } catch {}
+    });
+
+    expect(screen.getByTestId('error').textContent).toBe('User profile not found');
+  });
+
+  test('Given getUserRole throws unauthenticated, Then error "Please sign in again"', async () => {
+    const fakeUser = { email: 's@t.com' };
+    const err = Object.assign(new Error('denied'), { code: 'unauthenticated' });
+    const fakeFn = jest.fn().mockRejectedValue(err);
+    httpsCallable.mockReturnValue(fakeFn);
+
+    setup((_, cb) => { cb(fakeUser); return () => {}; });
+
+    await act(async () => {
+      jest.runAllTimers();
+      try { await fakeFn(); } catch {}
+    });
+
+    expect(screen.getByTestId('error').textContent).toBe('Please sign in again');
+  });
+
+  test('Given getUserRole throws other error, Then error "Error fetching user role"', async () => {
+    const fakeUser = { email: 'e@f.com' };
+    const err = new Error('gone wrong');
+    const fakeFn = jest.fn().mockRejectedValue(err);
+    httpsCallable.mockReturnValue(fakeFn);
+
+    setup((_, cb) => { cb(fakeUser); return () => {}; });
+
+    await act(async () => {
+      jest.runAllTimers();
+      try { await fakeFn(); } catch {}
+    });
+
+    expect(screen.getByTestId('error').textContent).toBe('Error fetching user role');
   });
 });
