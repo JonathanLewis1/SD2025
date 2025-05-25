@@ -8,12 +8,12 @@ import Header from '../../components/common/Header';
 import TableWrapper from '../../components/common/TableWrapper';
 import Button from '../../components/common/Button';
 
-export default function SellerReport({ userEmail }) {
+export default function SellerReport({ userEmail,refreshKey }) {
   const [inventoryData, setInventoryData] = useState([]);
 
   useEffect(() => {
     if (userEmail) fetchData();
-  }, [userEmail]);
+  }, [userEmail,refreshKey]);
 
   const fetchData = async () => {
     const snap = await getDocs(

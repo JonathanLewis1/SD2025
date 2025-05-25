@@ -23,6 +23,7 @@ import SellerReport from './SellerReport';
 import OrderReport from './OrderReport';
 
 export default function SellerPage() {
+  const [reportKey, setReportKey] = useState(0);
   const [products, setProducts] = useState([]);
   const [stockEdits, setStockEdits] = useState({});
   const [form, setForm] = useState({
@@ -95,6 +96,7 @@ export default function SellerPage() {
     try {
       await updateDoc(doc(db, 'products', id), { stock: qtyNum });
       fetchProducts(userEmail);
+      setReportKey(k => k + 1);
       alert('Stock updated successfully!');
     } catch (err) {
       setError('Failed to update stock: ' + err.message);
@@ -235,7 +237,8 @@ export default function SellerPage() {
         <Header level={1}>Dashboard Reports</Header>
       </Section>
       <Section styleProps={{ maxWidth: 1000, margin: '0 auto' }}>
-        <SellerReport userEmail={userEmail} />
+        {/* <SellerReport userEmail={userEmail} /> */}
+        <SellerReport userEmail={userEmail} refreshKey={reportKey} />
         <OrderReport userEmail={userEmail} />
       </Section>
     </Container>

@@ -18,7 +18,7 @@ import ProductDetail from './pages/Home/ProductDetail.js';
 import Cart from './pages/Cart.js';
 import Checkout from './pages/CheckoutWindow/Checkout.js';
 import ProtectedRoute from './components/ProtectedRoute'; // if you're using role-based routing
-import PrivacyPolicy from './pages/About/PrivacyPolicy';
+// import PrivacyPolicy from './pages/About/PrivacyPolicy';
 import ContactAdmin from './pages/About/ContactAdmin';
 
 const initialOptions = {
@@ -92,7 +92,7 @@ const App = () => {
 
               <Route path="*" element={<NotFoundPage />} />
 
-              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              {/* <Route path="/privacy-policy" element={<PrivacyPolicy />} /> */}
               <Route path="/contact-admin" element={<ContactAdmin />} />
 
             </Routes>
