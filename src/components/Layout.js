@@ -5,7 +5,9 @@ import Footer from './Footer';
 
 export default function Layout({ children }) {
   const location = useLocation();
-  const hideLayoutPaths = ['/login', '/signup'];
+
+  // Add any routes where you want a minimal layout
+  const hideLayoutPaths = ['/login', '/signup', '/checkout'];
 
   const hideLayout = hideLayoutPaths.includes(location.pathname);
 

@@ -28,7 +28,6 @@ export default function Checkout() {
   const [card, setCard] = useState('');
   const [cvv, setCvv] = useState('');
   const [exp, setExp] = useState('');
-  const [DeliveryType, setDeliveryType] = useState('standard');
   const [address, setAddress] = useState({
     street: '',
     suburb: '',
@@ -95,8 +94,8 @@ export default function Checkout() {
         Price,
         image,
         sellersEmails,
-        DeliveryType,
-        DeliveryStatus: 'In Progress',
+        DeliveryType: 'Standard',
+        DeliveryStatus: 'Delivered',
         timestamp: new Date(),
         Total,
         StreetName: address.street,
@@ -169,15 +168,32 @@ export default function Checkout() {
         <Card styleProps={{ maxWidth: 500, margin: '0 auto' }}>
           <Header level={2}>Order Summary</Header>
           {cart.map((item, index) => (
-            <div key={index} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+            <Section
+              key={index}
+              styleProps={{
+                display: 'flex',
+                justifyContent: 'space-between',
+                marginBottom: 8,
+                padding: 0,
+              }}
+            >
               <span>{item.name} x {item.quantity}</span>
               <span>R{(item.price * item.quantity).toFixed(2)}</span>
-            </div>
+            </Section>
           ))}
-          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, fontWeight: 'bold' }}>
+          <Section
+            styleProps={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              marginTop: 16,
+              paddingTop: 8,
+              fontWeight: 'bold',
+              borderTop: '2px solid #eee',
+            }}
+          >
             <span>Total:</span>
             <span>R{cart.reduce((sum, item) => sum + item.price * item.quantity, 0).toFixed(2)}</span>
-          </div>
+          </Section>
         </Card>
       </Section>
 
@@ -225,15 +241,6 @@ export default function Checkout() {
               value={address.postalCode}
               onChange={e => setAddress({ ...address, postalCode: e.target.value })}
             />
-                <TextInput
-                          as="select"
-                          value={DeliveryType}
-                          onChange={e => setDeliveryType(e.target.value)}
-                        >
-                          <option value="priority">Priority Delivery</option>
-                          <option value="standard">Standard Delivery</option>
-                        </TextInput>
-            
             <Button type="submit">Submit Payment</Button>
           </form>
         </Card>
