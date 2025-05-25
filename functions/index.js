@@ -11,7 +11,7 @@ const {onCall} = require("firebase-functions/v2/https");
 const logger = require("firebase-functions/logger");
 const admin = require("firebase-admin");
 const functions = require("firebase-functions");
-const stripe = require("stripe")(functions.config().stripe.secret_key);
+//const stripe = require("stripe")(functions.config().stripe.secret_key);
 admin.initializeApp();
 
 const db = admin.firestore();
@@ -92,7 +92,7 @@ exports.registerUserProfile = onCall({
   }
 });
 
-exports.getAllUsers = onCall({ cors: true }, async (request) => {
+exports.getAllUsersv2 = onCall({ cors: true }, async (request) => {
   const snapshot = await db.collection('users').get();
   return snapshot.docs.map(doc => ({
     id: doc.id,
@@ -100,7 +100,7 @@ exports.getAllUsers = onCall({ cors: true }, async (request) => {
   }));
 });
 
-exports.getAllComplaints = onCall({ cors: true }, async (request) => {
+exports.getAllComplaintsv2 = onCall({ cors: true }, async (request) => {
   const snapshot = await db.collection('complaints').get();
   return snapshot.docs.map(doc => doc.data());
 });
@@ -148,28 +148,4 @@ exports.isEmailBanned = onCall({ cors: true }, async (request) => {
   const docSnap = await docRef.get();
 
   return { banned: docSnap.exists };
-});
-
-exports.createPaymentIntent = onCall({ cors: true }, async (request) => {
-  if (!request.auth) {
-    throw new Error("User must be logged in");
-  }
-
-  const { amount, paymentMethodId } = request.data;
-
-  try {
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount,
-      currency: "usd",
-      payment_method: paymentMethodId,
-      confirm: true,
-      return_url: `${request.rawRequest.headers.origin}/payment-success`,
-    });
-
-    return {
-      clientSecret: paymentIntent.client_secret,
-    };
-  } catch (error) {
-    throw new Error(`Payment failed: ${error.message}`);
-  }
 });

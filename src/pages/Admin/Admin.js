@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../firebase';
+//import { getAllUsersv2 } from '../../../functions';
 
 const Admin = () => {
   const [users, setUsers] = useState([]);
@@ -13,13 +14,13 @@ const Admin = () => {
 
   const fetchUsers = async () => {
     const getAllUsers = httpsCallable(functions, 'getAllUsers');
-    const response = await getAllUsers();
+    const response = await getAllUsersv2();
     setUsers(response.data);
   };
 
   const fetchComplaints = async () => {
     const getAllComplaints = httpsCallable(functions, 'getAllComplaints');
-    const response = await getAllComplaints();
+    const response = await getAllComplaintsv2();
     setComplaints(response.data);
   };
 
