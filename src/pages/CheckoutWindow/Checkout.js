@@ -1,35 +1,48 @@
-// src/pages/Checkout.js
+
+
 import React, { useState, useEffect } from 'react';
 import { useCart } from '../../context/CartContext';
 import { useNavigate } from 'react-router-dom';
-import { collection, addDoc, updateDoc, doc, getDocs, query, where } from 'firebase/firestore';
+import {
+  collection,
+  addDoc,
+  updateDoc,
+  doc,
+  getDocs,
+  query,
+  where
+} from 'firebase/firestore';
 import { db, auth } from '../../firebase';
 
-const Checkout = () => {
+import Container from '../../components/common/Container';
+import Header from '../../components/common/Header';
+import Section from '../../components/common/Section';
+import Card from '../../components/common/Card';
+import Button from '../../components/common/Button';
+import TextInput from '../../components/common/TextInput';
+
+export default function Checkout() {
   const { clearCart } = useCart();
   const [cart, setCart] = useState([]);
   const [submitted, setSubmitted] = useState(false);
   const [card, setCard] = useState('');
   const [cvv, setCvv] = useState('');
   const [exp, setExp] = useState('');
-  const [address, setAddress] = useState({ street: '', suburb: '', city: '', postalCode: '' });
+  const [address, setAddress] = useState({
+    street: '',
+    suburb: '',
+    city: '',
+    postalCode: ''
+  });
   const [error, setError] = useState('');
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Get cart data from localStorage
     try {
       const cartData = localStorage.getItem('checkoutCart');
-      console.log('Retrieved cart data from localStorage:', cartData);
-      
       if (cartData) {
-        const parsedCart = JSON.parse(cartData);
-        console.log('Parsed cart data:', parsedCart);
-        setCart(parsedCart);
-        // Clear the checkout cart data from localStorage
-        localStorage.removeItem('checkoutCart');
+        setCart(JSON.parse(cartData));
       } else {
-        console.log('No cart data found in localStorage');
         setError('No cart data found');
       }
     } catch (err) {
@@ -41,11 +54,9 @@ const Checkout = () => {
   useEffect(() => {
     if (submitted) {
       if (window.opener) {
-        // Clear cart in parent window
         window.opener.localStorage.removeItem('cart');
         window.opener.location.assign('/home');
       }
-      // Close checkout window
       window.close();
     }
   }, [submitted]);
@@ -56,7 +67,7 @@ const Checkout = () => {
     const [mm, yy] = exp.split('/').map(Number);
     const today = new Date();
     const expDate = new Date(2000 + yy, mm - 1);
-    if (isNaN(mm) || isNaN(yy) || expDate < today) return 'Card is expired or invalid date.';
+    if (isNaN(mm) || isNaN(yy) || expDate < today) return 'Card is expired or invalid.';
     if (!address.street || !address.suburb || !address.city || !address.postalCode) return 'All address fields are required.';
     return null;
   };
@@ -76,7 +87,6 @@ const Checkout = () => {
     const Total = Price.reduce((acc, val, i) => acc + val * quantity[i], 0);
 
     try {
-      // Add order to Firestore
       await addDoc(collection(db, 'orders'), {
         buyerEmail: buyer.email,
         products,
@@ -94,9 +104,12 @@ const Checkout = () => {
         postalCode: address.postalCode,
       });
 
-      // Update stock quantities
       for (const item of cart) {
-        const q = query(collection(db, 'products'), where('name', '==', item.name), where('email', '==', item.email));
+        const q = query(
+          collection(db, 'products'),
+          where('name', '==', item.name),
+          where('email', '==', item.email)
+        );
         const snap = await getDocs(q);
         snap.forEach(async (docSnap) => {
           const ref = doc(db, 'products', docSnap.id);
@@ -105,6 +118,7 @@ const Checkout = () => {
         });
       }
 
+      localStorage.removeItem('checkoutCart');
       setSubmitted(true);
     } catch (err) {
       setError("Order processing failed: " + err.message);
@@ -113,99 +127,107 @@ const Checkout = () => {
 
   if (cart.length === 0) {
     return (
-      <div style={styles.container}>
-        <h2>Your cart is empty</h2>
-        <button onClick={() => window.close()} style={styles.button}>Close Window</button>
-      </div>
+      <Container>
+        <Section styleProps={{ textAlign: 'center' }}>
+          <Header level={2}>Your cart is empty</Header>
+          <Button onClick={() => window.close()}>Close Window</Button>
+        </Section>
+      </Container>
     );
   }
 
   if (submitted) {
     return (
-      <div style={styles.container}>
-        <h2>Thanks for your purchase, you may now close this window.</h2>
-        <button onClick={() => window.close()} style={styles.button}>Close Window</button>
-      </div>
+      <Container>
+        <Section styleProps={{ textAlign: 'center' }}>
+          <Header level={2}>Thanks for your purchase</Header>
+          <p>You may now close this window.</p>
+          <Button onClick={() => window.close()}>Close Window</Button>
+        </Section>
+      </Container>
     );
   }
 
   return (
-    <div style={styles.container}>
-      <h2>Secure Checkout</h2>
-      {error && <p style={styles.error}>{error}</p>}
-      <div style={styles.cartSummary}>
-        <h3>Order Summary</h3>
-        {cart.map((item, index) => (
-          <div key={index} style={styles.cartItem}>
-            <span>{item.name} x {item.quantity}</span>
-            <span>R{(item.price * item.quantity).toFixed(2)}</span>
+    <Container>
+      <Section styleProps={{ display: 'flex', justifyContent: 'center' }}>
+        <Header level={1} styleProps={{ textAlign: 'center' }}>
+          Secure Checkout
+        </Header>
+      </Section>
+
+      {error && (
+        <Section>
+          <Card styleProps={{ backgroundColor: '#fee2e2', color: '#dc2626', textAlign: 'center' }}>
+            {error}
+          </Card>
+        </Section>
+      )}
+
+      <Section>
+        <Card styleProps={{ maxWidth: 500, margin: '0 auto' }}>
+          <Header level={2}>Order Summary</Header>
+          {cart.map((item, index) => (
+            <div key={index} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
+              <span>{item.name} x {item.quantity}</span>
+              <span>R{(item.price * item.quantity).toFixed(2)}</span>
+            </div>
+          ))}
+          <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, fontWeight: 'bold' }}>
+            <span>Total:</span>
+            <span>R{cart.reduce((sum, item) => sum + item.price * item.quantity, 0).toFixed(2)}</span>
           </div>
-        ))}
-        <div style={styles.total}>
-          <strong>Total:</strong>
-          <strong>${cart.reduce((sum, item) => sum + item.price * item.quantity, 0).toFixed(2)}</strong>
-        </div>
-      </div>
-      <input placeholder="Card Number" value={card} onChange={e => setCard(e.target.value)} style={styles.input} />
-      <input placeholder="CVV" value={cvv} onChange={e => setCvv(e.target.value)} style={styles.input} />
-      <input placeholder="MM/YY" value={exp} onChange={e => setExp(e.target.value)} style={styles.input} />
-      <input placeholder="Street" value={address.street} onChange={e => setAddress({ ...address, street: e.target.value })} style={styles.input} />
-      <input placeholder="Suburb" value={address.suburb} onChange={e => setAddress({ ...address, suburb: e.target.value })} style={styles.input} />
-      <input placeholder="City" value={address.city} onChange={e => setAddress({ ...address, city: e.target.value })} style={styles.input} />
-      <input placeholder="Postal Code" value={address.postalCode} onChange={e => setAddress({ ...address, postalCode: e.target.value })} style={styles.input} />
-      <button onClick={handleSubmit} style={styles.button}>Submit Payment</button>
-    </div>
+        </Card>
+      </Section>
+
+      <Section>
+        <Card styleProps={{ maxWidth: 500, margin: '0 auto' }}>
+          <form
+            onSubmit={e => {
+              e.preventDefault();
+              handleSubmit();
+            }}
+            style={{ display: 'flex', flexDirection: 'column', gap: 16 }}
+          >
+            <TextInput
+              placeholder="Card Number"
+              value={card}
+              onChange={e => setCard(e.target.value)}
+            />
+            <TextInput
+              placeholder="CVV"
+              value={cvv}
+              onChange={e => setCvv(e.target.value)}
+            />
+            <TextInput
+              placeholder="MM/YY"
+              value={exp}
+              onChange={e => setExp(e.target.value)}
+            />
+            <TextInput
+              placeholder="Street"
+              value={address.street}
+              onChange={e => setAddress({ ...address, street: e.target.value })}
+            />
+            <TextInput
+              placeholder="Suburb"
+              value={address.suburb}
+              onChange={e => setAddress({ ...address, suburb: e.target.value })}
+            />
+            <TextInput
+              placeholder="City"
+              value={address.city}
+              onChange={e => setAddress({ ...address, city: e.target.value })}
+            />
+            <TextInput
+              placeholder="Postal Code"
+              value={address.postalCode}
+              onChange={e => setAddress({ ...address, postalCode: e.target.value })}
+            />
+            <Button type="submit">Submit Payment</Button>
+          </form>
+        </Card>
+      </Section>
+    </Container>
   );
-};
-
-const styles = {
-  container: {
-    backgroundColor: '#feffdf',
-    padding: 32,
-    minHeight: '100vh',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 16,
-    maxWidth: 400,
-    margin: '0 auto'
-  },
-  input: {
-    padding: '12px 16px',
-    borderRadius: 8,
-    border: '1px solid #ccc',
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: '#3b82f6',
-    color: '#fff',
-    padding: '12px 16px',
-    border: 'none',
-    borderRadius: 8,
-    fontSize: 16,
-    cursor: 'pointer'
-  },
-  error: {
-    color: 'red'
-  },
-  cartSummary: {
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 8,
-    marginBottom: 16
-  },
-  cartItem: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    padding: '8px 0',
-    borderBottom: '1px solid #eee'
-  },
-  total: {
-    display: 'flex',
-    justifyContent: 'space-between',
-    marginTop: 16,
-    paddingTop: 16,
-    borderTop: '2px solid #eee'
-  }
-};
-
-export default Checkout;
+}
