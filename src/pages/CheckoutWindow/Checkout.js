@@ -68,6 +68,7 @@ const Checkout = () => {
     const quantity = cart.map(item => item.quantity);
     const sellersEmails = cart.map(item => item.email);
     const Price = cart.map(item => item.price);
+    const image = cart.map(item => item.image);
     const Total = Price.reduce((acc, val, i) => acc + val * quantity[i], 0);
 
     try {
@@ -77,6 +78,7 @@ const Checkout = () => {
         products,
         quantity,
         Price,
+        image,
         sellersEmails,
         DeliveryType: 'Standard',
         DeliveryStatus: 'Delivered',

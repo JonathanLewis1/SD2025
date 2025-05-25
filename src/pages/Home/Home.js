@@ -55,6 +55,8 @@ const Home = () => {
           <option value="Clothing">Clothing</option>
           <option value="Home Decor">Home Decor</option>
           <option value="Woodwork">Woodwork</option>
+          <option value="Art">Art</option>
+          <option value="Other">Other</option>
         </select>
 
         <input

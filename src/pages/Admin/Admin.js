@@ -13,14 +13,14 @@ const Admin = () => {
   }, []);
 
   const fetchUsers = async () => {
-    const getAllUsers = httpsCallable(functions, 'getAllUsers');
-    const response = await getAllUsersv2();
+    const getAllUsers = httpsCallable(functions, 'getAllUsersv2');
+    const response = await getAllUsers();
     setUsers(response.data);
   };
 
   const fetchComplaints = async () => {
-    const getAllComplaints = httpsCallable(functions, 'getAllComplaints');
-    const response = await getAllComplaintsv2();
+    const getAllComplaints = httpsCallable(functions, 'getAllComplaintsv2');
+    const response = await getAllComplaints();
     setComplaints(response.data);
   };
 

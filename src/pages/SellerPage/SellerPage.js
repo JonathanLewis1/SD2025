@@ -173,6 +173,8 @@ export default function SellerPage() {
             <option>Clothing</option>
             <option>Home Decor</option>
             <option>Woodwork</option>
+            <option>Art</option>
+            <option>Other</option>
           </TextInput>
           <Button type="submit" styleProps={{ alignSelf: 'flex-start' }}>
             Add Product
