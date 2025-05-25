@@ -180,6 +180,76 @@ exports.makeAdmin = onCall({ cors: true }, async (request) => {
   }
 });
 
+exports.getAllProducts = onCall({ 
+  cors: true,
+  maxInstances: 10 
+}, async (request) => {
+  logger.info('getAllProducts function called', { auth: request.auth });
+  
+  if (!request.auth) {
+    logger.error('No auth context in request');
+    throw new Error('User must be logged in');
+  }
+
+  try {
+    const productsSnapshot = await db.collection('products').get();
+    const products = [];
+    productsSnapshot.forEach((doc) => {
+      products.push({
+        id: doc.id,
+        ...doc.data(),
+      });
+    });
+    logger.info('Products retrieved successfully', { count: products.length });
+    return { products };
+  } catch (error) {
+    logger.error('Error getting products:', error);
+    throw new Error('Failed to get products: ' + error.message);
+  }
+});
+
+exports.getSellerProducts = onCall({ 
+  cors: true,
+  maxInstances: 10 
+}, async (request) => {
+  logger.info('getSellerProducts function called', { auth: request.auth });
+  
+  if (!request.auth) {
+    logger.error('No auth context in request');
+    throw new Error('User must be logged in');
+  }
+
+  const { email } = request.data;
+  if (!email) {
+    logger.error('Missing email in request data');
+    throw new Error('Seller email is required');
+  }
+
+  try {
+    const productsSnapshot = await db.collection('products')
+      .where('email', '==', email)
+      .get();
+
+    const products = [];
+    productsSnapshot.forEach(doc => {
+      products.push({
+        id: doc.id,
+        ...doc.data(),
+      });
+    });
+
+    logger.info('Seller products retrieved successfully', { 
+      email, 
+      count: products.length 
+    });
+    
+    return { products };
+  } catch (error) {
+    logger.error('Error getting seller products:', error);
+    throw new Error('Failed to get seller products: ' + error.message);
+  }
+});
+
 exports.processCheckout = onCall({ cors: true }, async (request) => {
   const {
     cart,

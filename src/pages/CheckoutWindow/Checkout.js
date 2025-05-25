@@ -145,7 +145,7 @@ const handleSubmit = async () => {
           {cart.map((item, index) => (
             <Section key={index} style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 8 }}>
               <span>{item.name} x {item.quantity}</span>
-              <span>R{(item.price * item.quantity).toFixed(2)}</span>
+              <Section>R{(item.price * item.quantity).toFixed(2)}</Section>
             </Section>
           ))}
           <Section style={{ display: 'flex', justifyContent: 'space-between', marginTop: 16, fontWeight: 'bold' }}>

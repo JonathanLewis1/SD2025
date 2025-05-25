@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../../firebase';
 import { useCart } from '../../context/CartContext';
 
 import Container from '../../components/common/Container';
@@ -12,21 +12,62 @@ import Button    from '../../components/common/Button';
 export default function ProductDetail() {
   const { productId } = useParams();
   const [product, setProduct] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const { cart, addToCart } = useCart();
 
   useEffect(() => {
     async function fetchProduct() {
-      const snap = await getDoc(doc(db, 'products', productId));
-      if (snap.exists()) setProduct({ id: snap.id, ...snap.data() });
+      try {
+        setLoading(true);
+        const getProduct = httpsCallable(functions, 'getProduct');
+        const result = await getProduct({ productId });
+        setProduct(result.data);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching product:', err);
+        setError('Failed to load product details. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
     }
     fetchProduct();
   }, [productId]);
+
+  if (loading) {
+    return (
+      <Container styleProps={{ padding: 40, textAlign: 'center' }}>
+        <Section as="p" styleProps={{ fontSize: 18, color: '#555' }}>
+          Loading product details...
+        </Section>
+      </Container>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container styleProps={{ padding: 40, textAlign: 'center' }}>
+        <Section 
+          as="p" 
+          styleProps={{ 
+            fontSize: 18, 
+            color: '#b91c1c',
+            backgroundColor: '#fee2e2',
+            padding: 16,
+            borderRadius: 8
+          }}
+        >
+          {error}
+        </Section>
+      </Container>
+    );
+  }
 
   if (!product) {
     return (
       <Container styleProps={{ padding: 40, textAlign: 'center' }}>
         <Section as="p" styleProps={{ fontSize: 18, color: '#555' }}>
-          Loading product details...
+          Product not found.
         </Section>
       </Container>
     );
