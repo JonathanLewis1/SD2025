@@ -3,7 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-d
 import { CartProvider } from './context/CartContext';
 import { PayPalScriptProvider } from "@paypal/react-paypal-js";
 import { PAYPAL_CLIENT_ID, PAYPAL_CONFIG } from './config/paypal';
-
+import './App.css';  
 import NotFoundPage from './pages/NotFoundPage.js';
 import Login from './pages/Login/Login.js';
 import SignUp from './pages/SignUp/SignUp.js';
