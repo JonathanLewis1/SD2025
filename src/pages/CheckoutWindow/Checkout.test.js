@@ -1,17 +1,19 @@
 import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import Checkout from './Checkout'
-import { useCart } from '../../context/CartContext'
 import { httpsCallable } from 'firebase/functions'
 import { functions, auth } from '../../firebase'
 import { BrowserRouter } from 'react-router-dom'
 
+// mock CartContext
 jest.mock('../../context/CartContext', () => ({
   useCart: () => ({ clearCart: jest.fn() })
 }))
+
 jest.mock('firebase/functions', () => ({
   httpsCallable: jest.fn()
 }))
+
 jest.mock('../../firebase', () => ({
   functions: {},
   auth: { currentUser: { uid: 'u1' } }
@@ -133,7 +135,7 @@ describe('Checkout Component', () => {
     fireEvent.change(screen.getByPlaceholderText(/City/i), { target: { value: 'City' } })
     fireEvent.change(screen.getByPlaceholderText(/Postal Code/i), { target: { value: '0000' } })
     fireEvent.click(screen.getByRole('button', { name: /Submit Payment/i }))
-    
+
     expect(await screen.findByText(/Order processing failed: fail/i)).toBeInTheDocument()
   })
 })
