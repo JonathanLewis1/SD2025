@@ -12,7 +12,9 @@ import {
   query,
   where
 } from 'firebase/firestore';
-import { db, auth } from '../../firebase';
+import { auth } from '../../firebase';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../../firebase';
 
 import Container from '../../components/common/Container';
 import Header from '../../components/common/Header';
@@ -73,58 +75,30 @@ export default function Checkout() {
     return null;
   };
 
-  const handleSubmit = async () => {
-    const errorMsg = validate();
-    if (errorMsg) return setError(errorMsg);
 
-    const buyer = auth.currentUser;
-    if (!buyer) return setError("User not logged in.");
+const handleSubmit = async () => {
+  const errorMsg = validate();
+  if (errorMsg) return setError(errorMsg);
 
-    const products = cart.map(item => item.name);
-    const quantity = cart.map(item => item.quantity);
-    const sellersEmails = cart.map(item => item.email);
-    const Price = cart.map(item => item.price);
-    const image = cart.map(item => item.image);
-    const Total = Price.reduce((acc, val, i) => acc + val * quantity[i], 0);
+  if (!auth.currentUser) {
+    return setError("User not logged in.");
+  }
 
-    try {
-      await addDoc(collection(db, 'orders'), {
-        buyerEmail: buyer.email,
-        products,
-        quantity,
-        Price,
-        image,
-        sellersEmails,
-        DeliveryType,
-        DeliveryStatus: 'In Progress',
-        timestamp: new Date(),
-        Total,
-        StreetName: address.street,
-        suburb: address.suburb,
-        city: address.city,
-        postalCode: address.postalCode,
-      });
+  try {
+    const processCheckout = httpsCallable(functions, 'processCheckout');
+    await processCheckout({
+      cart,
+      deliveryType: DeliveryType,
+      address
+    });
 
-      for (const item of cart) {
-        const q = query(
-          collection(db, 'products'),
-          where('name', '==', item.name),
-          where('email', '==', item.email)
-        );
-        const snap = await getDocs(q);
-        snap.forEach(async (docSnap) => {
-          const ref = doc(db, 'products', docSnap.id);
-          const current = docSnap.data().stock || 0;
-          await updateDoc(ref, { stock: Math.max(current - item.quantity, 0) });
-        });
-      }
+    localStorage.removeItem('checkoutCart');
+    setSubmitted(true);
+  } catch (err) {
+    setError("Order processing failed: " + err.message);
+  }
+};
 
-      localStorage.removeItem('checkoutCart');
-      setSubmitted(true);
-    } catch (err) {
-      setError("Order processing failed: " + err.message);
-    }
-  };
 
   if (cart.length === 0) {
     return (
@@ -230,8 +204,8 @@ export default function Checkout() {
                           value={DeliveryType}
                           onChange={e => setDeliveryType(e.target.value)}
                         >
-                          <option value="priority">Priority Delivery</option>
-                          <option value="standard">Standard Delivery</option>
+                          <option value="Priority">Priority Delivery</option>
+                          <option value="Standard">Standard Delivery</option>
                         </TextInput>
             
             <Button type="submit">Submit Payment</Button>
