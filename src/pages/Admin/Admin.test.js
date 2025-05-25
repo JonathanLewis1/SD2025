@@ -1,93 +1,122 @@
-import { render, screen, waitFor, fireEvent } from '@testing-library/react';
-import Admin from './Admin';
-import { BrowserRouter } from 'react-router-dom';
-
-// Mock firebase/functions
-const mockGetAllUsers = jest.fn();
-const mockGetAllComplaints = jest.fn();
-const mockBanUser = jest.fn();
+import React from 'react'
+import { render, screen, fireEvent, waitFor } from '@testing-library/react'
+import Admin from './Admin'
+import { httpsCallable } from 'firebase/functions'
+import { functions } from '../../firebase'
+import { BrowserRouter } from 'react-router-dom'
 
 jest.mock('firebase/functions', () => ({
-  httpsCallable: (functions, name) => {
-    switch (name) {
-      case 'getAllUsers': return mockGetAllUsers;
-      case 'getAllComplaints': return mockGetAllComplaints;
-      case 'banUser': return mockBanUser;
-      default: return jest.fn();
-    }
-  }
-}));
+  httpsCallable: jest.fn()
+}))
 
 jest.mock('../../firebase', () => ({
   functions: {}
-}));
+}))
 
-const renderWithRouter = (ui) => render(<BrowserRouter>{ui}</BrowserRouter>);
+const wrap = ui => render(<BrowserRouter>{ui}</BrowserRouter>)
 
-describe('Admin Dashboard', () => {
+describe('Admin Component', () => {
+  const usersMock = [
+    { id: 'u1', firstName: 'Alice', lastName: 'A', email: 'a@x.com', role: 'buyer' },
+    { id: 'u2', firstName: 'Bob', lastName: 'B', email: 'b@x.com', role: 'seller' }
+  ]
+  const complaintsMock = [
+    { name: 'Carol', email: 'c@x.com', message: 'Issue 1' }
+  ]
+
   beforeEach(() => {
-    jest.clearAllMocks();
-  });
+    jest.clearAllMocks()
+  })
 
-  test('Given Admin loads, When data is fetched, Then users and complaints are shown', async () => {
-    mockGetAllUsers.mockResolvedValue({
-      data: [
-        { id: '1', firstName: 'Jane', lastName: 'Doe', email: 'jane@demo.com', role: 'buyer' }
-      ]
-    });
-    mockGetAllComplaints.mockResolvedValue({
-      data: [
-        { name: 'User A', email: 'a@example.com', message: 'Issue 1' }
-      ]
-    });
+  test('Given Admin mounts, when fetchUsers and fetchComplaints resolve, then users and complaints tables populate', async () => {
+    const getAllUsers = jest.fn().mockResolvedValue({ data: usersMock })
+    const getAllComplaints = jest.fn().mockResolvedValue({ data: complaintsMock })
+    httpsCallable
+      .mockReturnValueOnce(getAllUsers)
+      .mockReturnValueOnce(getAllComplaints)
 
-    renderWithRouter(<Admin />);
+    wrap(<Admin />)
 
-    // Wait for users table to appear
-    await waitFor(() => {
-      expect(screen.getByText('Jane')).toBeInTheDocument();
-      expect(screen.getByText('Doe')).toBeInTheDocument();
-      expect(screen.getByText('jane@demo.com')).toBeInTheDocument();
-      expect(screen.getByText('buyer')).toBeInTheDocument();
-    });
+    for (let u of usersMock) {
+      expect(await screen.findByText(u.firstName)).toBeInTheDocument()
+      expect(screen.getByText(u.email)).toBeInTheDocument()
+    }
+    expect(await screen.findByText(complaintsMock[0].message)).toBeInTheDocument()
+  })
 
-    // Wait for complaints to appear
-    expect(screen.getByText('User A')).toBeInTheDocument();
-    expect(screen.getByText('a@example.com')).toBeInTheDocument();
-    expect(screen.getByText('Issue 1')).toBeInTheDocument();
-  });
+  test('Given Ban clicked, when banUser succeeds, then that row is removed', async () => {
+    const getAllUsers = jest.fn().mockResolvedValue({ data: usersMock })
+    const getAllComplaints = jest.fn().mockResolvedValue({ data: [] })
+    const banUserFn = jest.fn().mockResolvedValue({})
+    httpsCallable
+      .mockReturnValueOnce(getAllUsers)
+      .mockReturnValueOnce(getAllComplaints)
+      .mockReturnValueOnce(banUserFn)
 
-  test('Given user data, When ban is clicked, Then banUser is called and user is removed', async () => {
-    mockGetAllUsers.mockResolvedValue({
-      data: [
-        { id: '2', firstName: 'John', lastName: 'Smith', email: 'john@demo.com', role: 'seller' }
-      ]
-    });
-    mockGetAllComplaints.mockResolvedValue({ data: [] });
-    mockBanUser.mockResolvedValue({ data: { success: true } });
+    wrap(<Admin />)
+    await screen.findByText('Alice')
 
-    renderWithRouter(<Admin />);
+    fireEvent.click(screen.getAllByRole('button', { name: /Ban/i })[0])
 
     await waitFor(() => {
-      expect(screen.getByText('John')).toBeInTheDocument();
-    });
+      expect(banUserFn).toHaveBeenCalledWith({ userId: 'u1', email: 'a@x.com' })
+      expect(screen.queryByText('Alice')).toBeNull()
+    })
+  })
 
-    fireEvent.click(screen.getByText('Ban'));
+  test('Given Ban clicked but fails, then error card shows', async () => {
+    const getAllUsers = jest.fn().mockResolvedValue({ data: usersMock })
+    const getAllComplaints = jest.fn().mockResolvedValue({ data: [] })
+    const banUserFn = jest.fn().mockRejectedValue(new Error('fail-ban'))
+    httpsCallable
+      .mockReturnValueOnce(getAllUsers)
+      .mockReturnValueOnce(getAllComplaints)
+      .mockReturnValueOnce(banUserFn)
+
+    wrap(<Admin />)
+    await screen.findByText('Alice')
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Ban/i })[0])
+
+    expect(await screen.findByText(/Error banning user: fail-ban/i)).toBeInTheDocument()
+  })
+
+  test('Given Make Admin clicked, when makeAdmin succeeds, then role cell updates', async () => {
+    const getAllUsers = jest.fn().mockResolvedValue({ data: usersMock })
+    const getAllComplaints = jest.fn().mockResolvedValue({ data: [] })
+    const makeAdminFn = jest.fn().mockResolvedValue({})
+    httpsCallable
+      .mockReturnValueOnce(getAllUsers)
+      .mockReturnValueOnce(getAllComplaints)
+      .mockReturnValueOnce(makeAdminFn)
+
+    wrap(<Admin />)
+    await screen.findByText('Bob')
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Make Admin/i })[1])
 
     await waitFor(() => {
-      expect(mockBanUser).toHaveBeenCalledWith({ userId: '2', email: 'john@demo.com' });
-      expect(screen.queryByText('John')).not.toBeInTheDocument();
-    });
-  });
+      expect(makeAdminFn).toHaveBeenCalledWith({ userId: 'u2' })
+      // after update, Bob's role cell text should now be "admin"
+      const roleCells = screen.getAllByRole('cell', { name: /admin/i })
+      expect(roleCells.length).toBeGreaterThan(0)
+    })
+  })
 
-  test('Given empty responses, When fetched, Then show empty tables without crashing', async () => {
-    mockGetAllUsers.mockResolvedValue({ data: [] });
-    mockGetAllComplaints.mockResolvedValue({ data: [] });
+  test('Given Make Admin clicked but fails, then error card shows', async () => {
+    const getAllUsers = jest.fn().mockResolvedValue({ data: usersMock })
+    const getAllComplaints = jest.fn().mockResolvedValue({ data: [] })
+    const makeAdminFn = jest.fn().mockRejectedValue(new Error('fail-make'))
+    httpsCallable
+      .mockReturnValueOnce(getAllUsers)
+      .mockReturnValueOnce(getAllComplaints)
+      .mockReturnValueOnce(makeAdminFn)
 
-    renderWithRouter(<Admin />);
-    await waitFor(() => {
-      expect(screen.getByText('Users')).toBeInTheDocument();
-      expect(screen.getByText('Complaints')).toBeInTheDocument();
-    });
-  });
-});
+    wrap(<Admin />)
+    await screen.findByText('Bob')
+
+    fireEvent.click(screen.getAllByRole('button', { name: /Make Admin/i })[1])
+
+    expect(await screen.findByText(/Error making user admin: fail-make/i)).toBeInTheDocument()
+  })
+})

@@ -1,3 +1,4 @@
+import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import Home from './Home';
 import { BrowserRouter } from 'react-router-dom';
@@ -38,7 +39,9 @@ test('Given a user searches a keyword, when matching product exists, then it is 
   renderWithRouter(<Home />);
   await screen.findByText(/Wood Chair/i);
 
-  fireEvent.change(screen.getByPlaceholderText(/search for a product/i), { target: { value: 'gold' } });
+  // use the exact placeholder from the component
+  fireEvent.change(screen.getByPlaceholderText(/Search…/i), { target: { value: 'gold' } });
+
   expect(screen.getByText(/Gold Ring/i)).toBeInTheDocument();
   expect(screen.queryByText(/Wood Chair/i)).not.toBeInTheDocument();
 });
@@ -47,7 +50,10 @@ test('Given a category is selected, when products match, then only those are dis
   renderWithRouter(<Home />);
   await screen.findByText(/Gold Ring/i);
 
-  fireEvent.change(screen.getByDisplayValue('All Categories'), { target: { value: 'Woodwork' } });
+  // select by visible text "All" initially
+  const categorySelect = screen.getByDisplayValue('All');
+  fireEvent.change(categorySelect, { target: { value: 'Woodwork' } });
+
   expect(screen.getByText(/Wood Chair/i)).toBeInTheDocument();
   expect(screen.queryByText(/Gold Ring/i)).not.toBeInTheDocument();
 });
@@ -67,7 +73,8 @@ test('Given filters are set, when reset is clicked, then all products reappear',
   renderWithRouter(<Home />);
   await screen.findByText(/Wood Chair/i);
 
-  fireEvent.change(screen.getByDisplayValue('All Categories'), { target: { value: 'Jewelry' } });
+  // narrow by category first
+  fireEvent.change(screen.getByDisplayValue('All'), { target: { value: 'Jewelry' } });
   fireEvent.click(screen.getByText(/Reset Filters/i));
 
   expect(screen.getByText(/Wood Chair/i)).toBeInTheDocument();
