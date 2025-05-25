@@ -9,6 +9,8 @@ import Login from './pages/Login/Login.js';
 import SignUp from './pages/SignUp/SignUp.js';
 import Home from './pages/Home/Home.js';
 import SellerPage from './pages/SellerPage/SellerPage.js';
+import BuyersOrders from './pages/Home/BuyersOrders.js';
+import SellerOrdersPage   from './pages/SellerPage/SellerOrdersPage.js';
 import Admin from './pages/Admin/Admin.js';
 import Layout from './components/Layout.js';
 import About from './pages/About/About.js';
@@ -56,19 +58,30 @@ const App = () => {
                 path="/sellerpage"
                 element={
                   <ProtectedRoute allowedRoles={['seller', 'admin']}>
-                    <SellerPage />
+                    <SellerPage/>
                   </ProtectedRoute>
                 }
               />
 
-              {/* <Route
-                path="/seller-dashboard"
+             {/* Buyer general page */}
+              <Route
+                path="/buyer-orders"
                 element={
-                  <ProtectedRoute allowedRoles={['seller', 'admin']}>
-                    <h1>Seller Dashboard (Coming Soon)</h1>
+                  <ProtectedRoute allowedRoles={['buyer','admin']}>
+                    <BuyersOrders />
                   </ProtectedRoute>
                 }
-              /> */}
+              />
+
+              {/* Seller orders */}
+              <Route
+                path="/seller-orders"
+                element={
+                  <ProtectedRoute allowedRoles={['seller','admin']}>
+                    <SellerOrdersPage />
+                  </ProtectedRoute>
+                }
+              />
 
               <Route path="*" element={<NotFoundPage />} />
 
