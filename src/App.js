@@ -13,7 +13,7 @@ import Admin from './pages/Admin/Admin.js';
 import Layout from './components/Layout.js';
 import About from './pages/About/About.js';
 import ProductDetail from './pages/Home/ProductDetail.js';
-import Cart from './pages/Cart.js';
+import Cart from './pages/CheckoutWindow/Cart.js';
 import Checkout from './pages/CheckoutWindow/Checkout.js';
 import ProtectedRoute from './components/ProtectedRoute'; // if you're using role-based routing
 // import PrivacyPolicy from './pages/About/PrivacyPolicy';

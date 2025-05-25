@@ -1,7 +1,7 @@
 import React from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
 import Cart from './Cart';
-import { useCart } from '../context/CartContext';
+import { useCart } from '../../context/CartContext';
 import { BrowserRouter, MemoryRouter } from 'react-router-dom';
 
 jest.mock('../context/CartContext');

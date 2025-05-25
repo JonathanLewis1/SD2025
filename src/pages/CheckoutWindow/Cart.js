@@ -1,14 +1,14 @@
 
 
 import React from "react";
-import { useCart } from "../context/CartContext";
+import { useCart } from "../../context/CartContext";
 import { useNavigate } from "react-router-dom";
 
-import Container from "../components/common/Container";
-import Section from "../components/common/Section";
-import Card from "../components/common/Card";
-import Header from "../components/common/Header";
-import Button from "../components/common/Button";
+import Container from "../../components/common/Container";
+import Section from "../../components/common/Section";
+import Card from "../../components/common/Card";
+import Header from "../../components/common/Header";
+import Button from "../../components/common/Button";
 
 export default function Cart() {
   const { cart, removeFromCart, updateQuantity, getTotal } = useCart();
