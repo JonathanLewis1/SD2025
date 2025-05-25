@@ -1,11 +1,9 @@
-import React, { useState, useEffect } from 'react';
-import { signInWithEmailAndPassword, sendPasswordResetEmail, signOut, onAuthStateChanged } from 'firebase/auth';
+import React, { useState } from 'react';
+import { signInWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { auth } from '../../firebase';
 import { useNavigate, Link } from 'react-router-dom';
+import { useAuth } from '../../context/AuthContext';
 import '../../App.css';
-import { setPersistence, browserSessionPersistence } from 'firebase/auth';
-import { doc } from 'firebase/firestore';
-import { db } from '../../firebase';
 
 const Login = () => {
   const [email, setEmail] = useState('');
@@ -14,118 +12,66 @@ const Login = () => {
   const [resetMessage, setResetMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      if (user) {
-        console.log('Auth state changed - User is signed in:', user.uid);
-        // Check if we're already on the login page
-        if (window.location.pathname === '/login') {
-          // Get user role and navigate
-          handleNavigation(user);
-        }
-      } else {
-        console.log('Auth state changed - User is signed out');
-      }
-    });
-
-    return () => unsubscribe();
-  }, []);
-
-  const handleNavigation = async (user) => {
-    try {
-      const token = await user.getIdToken(true);
-      const response = await fetch(
-        "https://us-central1-sd2025law.cloudfunctions.net/getUserRole",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ email: user.email }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to get user role");
-      }
-
-      const userData = await response.json();
-      console.log("User data for navigation:", userData);
-
-      if (userData.role === "admin") {
-        navigate("/admin", { replace: true });
-      } else if (userData.role === "seller") {
-        navigate("/sellerpage", { replace: true });
-      } else if (userData.role === "buyer") {
-        navigate("/home", { replace: true });
-      } else {
-        console.log("Unknown role, defaulting to home page");
-        navigate("/home", { replace: true });
-      }
-    } catch (error) {
-      console.error("Navigation error:", error);
-      setError(error.message);
-    }
-  };
+  const { userRole, loading: authLoading, isCheckingRole } = useAuth();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isLoading || authLoading || isCheckingRole) return;
+
     setError("");
     setIsLoading(true);
 
     try {
-      const userCredential = await signInWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
-      console.log("User signed in:", user.uid);
-
-      // Get a fresh token
-      const token = await user.getIdToken(true);
-      console.log("Token refreshed");
-
-      // Call getUserRole function with the token
-      const response = await fetch(
-        "https://us-central1-sd2025law.cloudfunctions.net/getUserRole",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ email: user.email }),
+      // First, attempt to sign in
+      await signInWithEmailAndPassword(auth, email, password);
+      
+      // Wait for role check to complete
+      let attempts = 0;
+      const maxAttempts = 10;
+      const checkRole = async () => {
+        if (attempts >= maxAttempts) {
+          setError("Failed to verify user role. Please try again.");
+          setIsLoading(false);
+          return;
         }
-      );
 
-      if (!response.ok) {
-        throw new Error("Failed to get user role");
-      }
+        if (isCheckingRole || !userRole) {
+          attempts++;
+          setTimeout(checkRole, 500);
+          return;
+        }
 
-      const userData = await response.json();
-      console.log("User data:", userData);
+        // Role is available, handle navigation
+        let targetPath;
+        switch (userRole) {
+          case "admin":
+            targetPath = "/admin";
+            break;
+          case "seller":
+            targetPath = "/sellerpage";
+            break;
+          case "buyer":
+            targetPath = "/home";
+            break;
+          default:
+            setError('Invalid user role');
+            setIsLoading(false);
+            return;
+        }
+        navigate(targetPath, { replace: true });
+      };
 
-      // Navigate based on role
-      if (userData.role === "admin") {
-        navigate("/admin", { replace: true });
-      } else if (userData.role === "seller") {
-        navigate("/sellerpage", { replace: true });
-      } else if (userData.role === "buyer") {
-        navigate("/home", { replace: true });
-      } else {
-        // Default to home if role is not recognized
-        console.log("Unknown role, defaulting to home page");
-        navigate("/home", { replace: true });
-      }
+      checkRole();
     } catch (error) {
       console.error("Login error:", error);
       setError(error.message);
-    } finally {
       setIsLoading(false);
     }
   };
-  
 
   const handleForgotPassword = async () => {
+    if (isLoading || authLoading || isCheckingRole) return;
+    
     setError('');
     setResetMessage('');
     if (!email) {
@@ -139,6 +85,16 @@ const Login = () => {
       setError('Failed to send reset email. Please check your email.');
     }
   };
+
+  if (authLoading || isCheckingRole) {
+    return (
+      <div style={styles.wrapper}>
+        <div style={styles.container}>
+          <h2 style={styles.subtitle}>Loading...</h2>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={styles.wrapper}>
@@ -156,6 +112,7 @@ const Login = () => {
             onChange={(e) => setEmail(e.target.value)}
             required
             style={styles.input}
+            disabled={isLoading || authLoading || isCheckingRole}
           />
           <input
             type="password"
@@ -164,13 +121,22 @@ const Login = () => {
             onChange={(e) => setPassword(e.target.value)}
             required
             style={styles.input}
+            disabled={isLoading || authLoading || isCheckingRole}
           />
-          <button type="submit" style={styles.button} disabled={isLoading}>
+          <button 
+            type="submit" 
+            style={styles.button} 
+            disabled={isLoading || authLoading || isCheckingRole}
+          >
             {isLoading ? 'Logging in...' : 'Log In'}
           </button>
         </form>
 
-        <p style={styles.forgotPassword} onClick={handleForgotPassword}>
+        <p 
+          style={styles.forgotPassword} 
+          onClick={handleForgotPassword}
+          className={isLoading || authLoading || isCheckingRole ? 'disabled' : ''}
+        >
           Forgot your password?
         </p>
 

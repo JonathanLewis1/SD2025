@@ -22,42 +22,70 @@ admin.initializeApp();
 //   response.send("Hello from Firebase!");
 // });
 
+const VALID_ROLES = ['buyer', 'seller', 'admin'];
+
 // Get user role by UID
-exports.getUserRole = functions.https.onRequest((req, res) => {
-  return cors(req, res, async () => {
-    try {
-      // Get the authorization token from the request
-      const authHeader = req.headers.authorization;
-      if (!authHeader || !authHeader.startsWith("Bearer ")) {
-        res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-
-      const idToken = authHeader.split("Bearer ")[1];
-      // const decodedToken = await admin.auth().verifyIdToken(idToken); // This variable is not used
-
-      const { email } = req.body;
-      if (!email) {
-        res.status(400).json({ error: "Email is required" });
-        return;
-      }
-
-      const userDoc = await admin.firestore()
-        .collection("users")
-        .doc(email)
-        .get();
-
-      if (!userDoc.exists) {
-        res.json({ role: "user" });
-        return;
-      }
-
-      res.json(userDoc.data());
-    } catch (error) {
-      console.error("Error getting user role:", error);
-      res.status(500).json({ error: "Internal server error" });
+exports.getUserRole = functions.https.onCall(async (data, context) => {
+  console.log('getUserRole called with:', { data, auth: context.auth });
+  
+  try {
+    if (!context.auth) {
+      throw new functions.https.HttpsError(
+        'unauthenticated',
+        'User must be authenticated'
+      );
     }
-  });
+
+    const { email } = data;
+    if (!email) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Email is required'
+      );
+    }
+
+    console.log('Attempting to fetch user document for email:', email);
+    
+    const userDoc = await admin.firestore()
+      .collection("users")
+      .doc(email)
+      .get();
+
+    console.log('Firestore response:', {
+      exists: userDoc.exists,
+      data: userDoc.exists ? userDoc.data() : null
+    });
+
+    if (!userDoc.exists) {
+      throw new functions.https.HttpsError(
+        'not-found',
+        'User profile not found'
+      );
+    }
+
+    const userData = userDoc.data();
+    const role = userData.role;
+
+    if (!role || !VALID_ROLES.includes(role)) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        `Invalid user role. Must be one of: ${VALID_ROLES.join(', ')}`
+      );
+    }
+
+    console.log('Returning user data:', { role });
+    return { role };
+  } catch (error) {
+    console.error("Error getting user role:", {
+      error: error.message,
+      stack: error.stack,
+      code: error.code
+    });
+    throw new functions.https.HttpsError(
+      error.code || 'internal',
+      error.message || 'Failed to get user role'
+    );
+  }
 });
 
 exports.registerUserProfile = functions.https.onRequest((req, res) => {
@@ -71,14 +99,24 @@ exports.registerUserProfile = functions.https.onRequest((req, res) => {
       }
 
       const idToken = authHeader.split("Bearer ")[1];
-      // const decodedToken = await admin.auth().verifyIdToken(idToken); // This variable is not used
 
       const { email, role, firstName, lastName } = req.body;
-      if (!email || !role) {
-        res.status(400).json({ error: "Email and role are required" });
+      
+      // Validate required fields
+      if (!email || !role || !firstName || !lastName) {
+        res.status(400).json({ error: "Email, role, first name, and last name are required" });
         return;
       }
 
+      // Validate role
+      if (!VALID_ROLES.includes(role)) {
+        res.status(400).json({ 
+          error: `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}` 
+        });
+        return;
+      }
+
+      // Create user profile
       await admin.firestore().collection('users').doc(email).set({
         email,
         role,

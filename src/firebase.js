@@ -21,6 +21,11 @@ const auth = getAuth(app);
 // Initialize Functions with explicit region and auth
 const functions = getFunctions(app, "us-central1");
 
+// Connect to the emulator in development
+if (window.location.hostname === "localhost") {
+    connectFunctionsEmulator(functions, "localhost", 5001);
+}
+
 // Debug logging
 console.log('Firebase initialized:', {
     app: !!app,
@@ -28,6 +33,7 @@ console.log('Firebase initialized:', {
     functions: !!functions,
     functionsRegion: functions.region,
     functionsCustomDomain: functions.customDomain,
+    isEmulator: window.location.hostname === "localhost",
     authState: auth.currentUser ? {
         uid: auth.currentUser.uid,
         email: auth.currentUser.email,

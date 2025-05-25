@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, ScrollView, StyleSheet } from 'react-native';
-import { auth } from '../../firebase';
+import { auth, functions } from '../../firebase';
 import ProductCard from './ProductCard';
+import { httpsCallable } from 'firebase/functions';
 
 const Home = () => {
   const [products, setProducts] = useState([]);
@@ -10,6 +10,7 @@ const Home = () => {
   const [minPrice, setMinPrice] = useState('');
   const [maxPrice, setMaxPrice] = useState('');
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     fetchProducts();
@@ -21,29 +22,22 @@ const Home = () => {
       if (!user) {
         throw new Error('User not authenticated');
       }
-      const token = await user.getIdToken();
 
-      const response = await fetch(
-        "https://us-central1-sd2025law.cloudfunctions.net/getAllProducts",
-        {
-          method: "GET",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch products');
+      const getAllProducts = httpsCallable(functions, 'getAllProducts');
+      const result = await getAllProducts();
+      console.log('Products fetched:', result.data);
+      
+      if (!result.data || !result.data.products) {
+        throw new Error('Invalid response format');
       }
-
-      const data = await response.json();
-      setProducts(data.products || []);
+      
+      setProducts(result.data.products);
       setError(null);
     } catch (err) {
       console.error('Error fetching products:', err);
       setError('Failed to fetch products');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -62,139 +56,159 @@ const Home = () => {
     setMaxPrice('');
   };
 
+  if (loading) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.loading}>Loading products...</div>
+      </div>
+    );
+  }
+
   if (error) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.error}>{error}</Text>
-      </View>
+      <div style={styles.container}>
+        <div style={styles.error}>{error}</div>
+      </div>
     );
   }
 
   return (
-    <ScrollView style={styles.container}>
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <TextInput
-            style={styles.searchInput}
+    <div style={styles.container}>
+      <div style={styles.searchContainer}>
+        <div style={styles.searchBar}>
+          <input
+            type="text"
             placeholder="Search products..."
             value={searchTerm}
-            onChangeText={setSearchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            style={styles.searchInput}
           />
-        </View>
+        </div>
 
-        <View style={styles.filtersContainer}>
-          <TextInput
-            style={styles.filterInput}
+        <div style={styles.filtersContainer}>
+          <input
+            type="number"
             placeholder="Min Price"
             value={minPrice}
-            onChangeText={setMinPrice}
-            keyboardType="numeric"
-          />
-          <TextInput
+            onChange={(e) => setMinPrice(e.target.value)}
             style={styles.filterInput}
+          />
+          <input
+            type="number"
             placeholder="Max Price"
             value={maxPrice}
-            onChangeText={setMaxPrice}
-            keyboardType="numeric"
+            onChange={(e) => setMaxPrice(e.target.value)}
+            style={styles.filterInput}
           />
-          <TouchableOpacity
+          <button
+            onClick={() => setSelectedCategory(selectedCategory === 'All' ? 'Jewelry' : 'All')}
             style={styles.filterButton}
-            onPress={() => setSelectedCategory(selectedCategory === 'All' ? 'Jewelry' : 'All')}
           >
-            <Text style={styles.filterButtonText}>
-              {selectedCategory === 'All' ? 'All Categories' : selectedCategory}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
+            {selectedCategory === 'All' ? 'All Categories' : selectedCategory}
+          </button>
+          <button
+            onClick={handleReset}
             style={styles.resetButton}
-            onPress={handleReset}
           >
-            <Text style={styles.resetButtonText}>Reset Filters</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
+            Reset Filters
+          </button>
+        </div>
+      </div>
 
-      <View style={styles.productsContainer}>
-        {filteredProducts.map(product => (
-          <ProductCard key={product.id} product={product} />
-        ))}
-      </View>
-    </ScrollView>
+      <div style={styles.productsContainer}>
+        {filteredProducts.length === 0 ? (
+          <div style={styles.noProducts}>No products found</div>
+        ) : (
+          filteredProducts.map(product => (
+            <ProductCard key={product.id} product={product} />
+          ))
+        )}
+      </div>
+    </div>
   );
 };
 
-const styles = StyleSheet.create({
+const styles = {
   container: {
-    flex: 1,
+    padding: '20px',
     backgroundColor: '#f5f5f5',
+    minHeight: '100vh',
   },
   searchContainer: {
-    padding: 16,
     backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
+    padding: '16px',
+    borderRadius: '8px',
+    marginBottom: '20px',
+    boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
   },
   searchBar: {
-    marginBottom: 16,
+    marginBottom: '16px',
   },
   searchInput: {
-    height: 40,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#fff',
+    width: '100%',
+    padding: '10px',
+    border: '1px solid #ddd',
+    borderRadius: '8px',
+    fontSize: '16px',
   },
   filtersContainer: {
-    flexDirection: 'row',
+    display: 'flex',
+    gap: '10px',
     flexWrap: 'wrap',
-    gap: 8,
   },
   filterInput: {
-    flex: 1,
-    minWidth: 100,
-    height: 40,
-    borderWidth: 1,
-    borderColor: '#ddd',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    backgroundColor: '#fff',
+    flex: '1',
+    minWidth: '120px',
+    padding: '10px',
+    border: '1px solid #ddd',
+    borderRadius: '8px',
+    fontSize: '14px',
   },
   filterButton: {
-    padding: 8,
+    padding: '10px 20px',
     backgroundColor: '#3b82f6',
-    borderRadius: 8,
-    minWidth: 120,
-  },
-  filterButtonText: {
     color: '#fff',
-    textAlign: 'center',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '14px',
     fontWeight: '500',
   },
   resetButton: {
-    padding: 8,
+    padding: '10px 20px',
     backgroundColor: '#f97316',
-    borderRadius: 8,
-    minWidth: 120,
-  },
-  resetButtonText: {
     color: '#fff',
-    textAlign: 'center',
+    border: 'none',
+    borderRadius: '8px',
+    cursor: 'pointer',
+    fontSize: '14px',
     fontWeight: '500',
   },
   productsContainer: {
-    padding: 16,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 16,
-    justifyContent: 'center',
+    display: 'grid',
+    gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+    gap: '20px',
+    padding: '20px 0',
   },
   error: {
-    color: 'red',
+    color: '#dc2626',
     textAlign: 'center',
-    marginTop: 32,
-    fontSize: 16,
+    fontSize: '16px',
+    padding: '20px',
   },
-});
+  loading: {
+    textAlign: 'center',
+    fontSize: '16px',
+    padding: '20px',
+    color: '#666',
+  },
+  noProducts: {
+    textAlign: 'center',
+    fontSize: '16px',
+    padding: '20px',
+    color: '#666',
+    gridColumn: '1 / -1',
+  },
+};
 
 export default Home;

@@ -1,13 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { View, Text, Image, TouchableOpacity, StyleSheet } from 'react-native';
-import { auth } from '../../firebase';
+import { auth, functions } from '../../firebase';
 import { useCart } from '../../context/CartContext';
+import { httpsCallable } from 'firebase/functions';
 
 const ProductDetail = () => {
   const { productId } = useParams();
   const [product, setProduct] = useState(null);
   const [error, setError] = useState(null);
+  const [loading, setLoading] = useState(true);
   const { addToCart } = useCart();
 
   useEffect(() => {
@@ -20,30 +21,22 @@ const ProductDetail = () => {
       if (!user) {
         throw new Error('User not authenticated');
       }
-      const token = await user.getIdToken();
 
-      const response = await fetch(
-        "https://us-central1-sd2025law.cloudfunctions.net/getProduct",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ productId }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch product');
+      const getProduct = httpsCallable(functions, 'getProduct');
+      const result = await getProduct({ productId });
+      console.log('Product fetched:', result.data);
+      
+      if (!result.data) {
+        throw new Error('Product not found');
       }
-
-      const data = await response.json();
-      setProduct(data);
+      
+      setProduct(result.data);
       setError(null);
     } catch (err) {
       console.error('Error fetching product:', err);
       setError('Failed to fetch product details');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -54,121 +47,142 @@ const ProductDetail = () => {
     }
   };
 
+  if (loading) {
+    return (
+      <div style={styles.container}>
+        <div style={styles.loading}>Loading product details...</div>
+      </div>
+    );
+  }
+
   if (error) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.error}>{error}</Text>
-      </View>
+      <div style={styles.container}>
+        <div style={styles.error}>{error}</div>
+      </div>
     );
   }
 
   if (!product) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.loading}>Loading product details...</Text>
-      </View>
+      <div style={styles.container}>
+        <div style={styles.error}>Product not found</div>
+      </div>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.card}>
-        <Image source={{ uri: product.image }} style={styles.image} />
-        <View style={styles.info}>
-          <Text style={styles.title}>{product.name}</Text>
-          <Text style={styles.price}>R{product.price}</Text>
-          <Text style={styles.description}>{product.description}</Text>
-          <Text style={styles.stock}>
+    <div style={styles.container}>
+      <div style={styles.card}>
+        <div style={styles.imageContainer}>
+          <img src={product.image} alt={product.name} style={styles.image} />
+        </div>
+        <div style={styles.info}>
+          <h1 style={styles.title}>{product.name}</h1>
+          <p style={styles.price}>R{product.price}</p>
+          <p style={styles.description}>{product.description}</p>
+          <p style={styles.stock}>
             {product.stock === 0 
               ? "This product is out of stock."
               : product.stock <= 5 
                 ? "There are less than 5 of this product in stock."
                 : ""}
-          </Text>
+          </p>
           {product.stock > 0 && (
-            <TouchableOpacity
+            <button
               style={styles.button}
-              onPress={handleAddToCart}
+              onClick={handleAddToCart}
             >
-              <Text style={styles.buttonText}>Add to Cart</Text>
-            </TouchableOpacity>
+              Add to Cart
+            </button>
           )}
-        </View>
-      </View>
-    </View>
+        </div>
+      </div>
+    </div>
   );
 };
 
-const styles = StyleSheet.create({
+const styles = {
   container: {
-    flex: 1,
+    padding: '20px',
     backgroundColor: '#f5f5f5',
-    padding: 16,
+    minHeight: '100vh',
   },
   card: {
     backgroundColor: '#fff',
-    borderRadius: 12,
+    borderRadius: '12px',
     overflow: 'hidden',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
+    maxWidth: '1200px',
+    margin: '0 auto',
+    display: 'flex',
+    flexDirection: 'row',
+    gap: '32px',
+    padding: '32px',
+  },
+  imageContainer: {
+    flex: '1',
+    maxWidth: '600px',
   },
   image: {
     width: '100%',
-    height: 300,
-    resizeMode: 'cover',
+    height: 'auto',
+    borderRadius: '8px',
+    objectFit: 'cover',
   },
   info: {
-    padding: 16,
+    flex: '1',
+    display: 'flex',
+    flexDirection: 'column',
+    gap: '16px',
   },
   title: {
-    fontSize: 24,
+    fontSize: '32px',
     fontWeight: 'bold',
-    marginBottom: 8,
-    color: '#333',
+    color: '#1f2937',
+    margin: '0',
   },
   price: {
-    fontSize: 20,
+    fontSize: '24px',
     color: '#3b82f6',
     fontWeight: '600',
-    marginBottom: 12,
+    margin: '0',
   },
   description: {
-    fontSize: 16,
-    color: '#666',
-    marginBottom: 16,
-    lineHeight: 24,
+    fontSize: '16px',
+    color: '#4b5563',
+    lineHeight: '1.6',
+    margin: '0',
   },
   stock: {
-    fontSize: 14,
+    fontSize: '14px',
     color: '#dc2626',
-    marginBottom: 16,
+    margin: '0',
   },
   button: {
     backgroundColor: '#3b82f6',
-    padding: 12,
-    borderRadius: 8,
-    alignItems: 'center',
-  },
-  buttonText: {
     color: '#fff',
-    fontSize: 16,
+    border: 'none',
+    borderRadius: '8px',
+    padding: '12px 24px',
+    fontSize: '16px',
     fontWeight: '500',
+    cursor: 'pointer',
+    transition: 'background-color 0.2s ease',
+    alignSelf: 'flex-start',
   },
   loading: {
-    fontSize: 16,
-    color: '#666',
     textAlign: 'center',
-    marginTop: 32,
+    fontSize: '16px',
+    color: '#6b7280',
+    padding: '40px',
   },
   error: {
-    fontSize: 16,
-    color: '#dc2626',
     textAlign: 'center',
-    marginTop: 32,
+    fontSize: '16px',
+    color: '#dc2626',
+    padding: '40px',
   },
-});
+};
 
 export default ProductDetail;

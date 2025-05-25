@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { CartProvider } from './context/CartContext';
+import { AuthProvider } from './context/AuthContext';
 
 import NotFoundPage from './pages/NotFoundPage.js';
 import Login from './pages/Login/Login.js';
@@ -20,58 +21,82 @@ import ContactAdmin from './pages/About/ContactAdmin';
 
 const App = () => {
   return (
-    <CartProvider>
-      <Router>
-        <Layout>
-          <Routes>
-            <Route path="/" element={<Navigate to="/login" />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/signup" element={<SignUp />} />
-            <Route path="/admin" element={<Admin />} />
-            <Route path="/about" element={<About />} />
-            <Route path="/cart" element={<Cart />} />
-            <Route path="/checkout" element={<Checkout />} />
-            <Route path="/mock-checkout" element={<MockCheckout />} />
+    <AuthProvider>
+      <CartProvider>
+        <Router>
+          <Layout>
+            <Routes>
+              <Route path="/" element={<Navigate to="/login" replace />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/signup" element={<SignUp />} />
+              <Route path="/about" element={<About />} />
+              <Route path="/privacy-policy" element={<PrivacyPolicy />} />
+              <Route path="/contact-admin" element={<ContactAdmin />} />
 
-            {/* Public product detail page */}
-            <Route path="/product/:productId" element={<ProductDetail />} />
+              {/* Protected routes */}
+              <Route
+                path="/admin"
+                element={
+                  <ProtectedRoute allowedRoles={['admin']}>
+                    <Admin />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/cart"
+                element={
+                  <ProtectedRoute allowedRoles={['buyer', 'seller', 'admin']}>
+                    <Cart />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/checkout"
+                element={
+                  <ProtectedRoute allowedRoles={['buyer', 'seller', 'admin']}>
+                    <Checkout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/mock-checkout"
+                element={
+                  <ProtectedRoute allowedRoles={['buyer', 'seller', 'admin']}>
+                    <MockCheckout />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/product/:productId"
+                element={
+                  <ProtectedRoute allowedRoles={['buyer', 'seller', 'admin']}>
+                    <ProductDetail />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/home"
+                element={
+                  <ProtectedRoute allowedRoles={['buyer', 'seller', 'admin']}>
+                    <Home />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/sellerpage"
+                element={
+                  <ProtectedRoute allowedRoles={['seller', 'admin']}>
+                    <SellerPage />
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Role-protected routes (edit roles as needed) */}
-            <Route
-              path="/home"
-              element={
-                <ProtectedRoute allowedRoles={['buyer', 'seller', 'admin']}>
-                  <Home />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/sellerpage"
-              element={
-                <ProtectedRoute allowedRoles={['seller', 'admin']}>
-                  <SellerPage />
-                </ProtectedRoute>
-              }
-            />
-
-            {/* <Route
-              path="/seller-dashboard"
-              element={
-                <ProtectedRoute allowedRoles={['seller', 'admin']}>
-                  <h1>Seller Dashboard (Coming Soon)</h1>
-                </ProtectedRoute>
-              }
-            /> */}
-
-            <Route path="*" element={<NotFoundPage />} />
-
-            <Route path="/privacy-policy" element={<PrivacyPolicy />} />
-            <Route path="/contact-admin" element={<ContactAdmin />} />
-
-          </Routes>
-        </Layout>
-      </Router>
-    </CartProvider>
+              <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+          </Layout>
+        </Router>
+      </CartProvider>
+    </AuthProvider>
   );
 };
 

@@ -12,15 +12,25 @@ const Admin = () => {
   }, []);
 
   const fetchUsers = async () => {
-    const getAllUsers = httpsCallable(functions, 'getAllUsers');
-    const response = await getAllUsers();
-    setUsers(response.data);
+    try {
+      const getAllUsers = httpsCallable(functions, 'getAllUsers');
+      const response = await getAllUsers();
+      setUsers(response.data.users);
+    } catch (err) {
+      console.error('Error fetching users:', err);
+      setUsers([]);
+    }
   };
 
   const fetchComplaints = async () => {
-    const getAllComplaints = httpsCallable(functions, 'getAllComplaints');
-    const response = await getAllComplaints();
-    setComplaints(response.data);
+    try {
+      const getAllComplaints = httpsCallable(functions, 'getAllComplaints');
+      const response = await getAllComplaints();
+      setComplaints(response.data.complaints);
+    } catch (err) {
+      console.error('Error fetching complaints:', err);
+      setComplaints([]);
+    }
   };
 
   const banUser = async (userId, email) => {

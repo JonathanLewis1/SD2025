@@ -1,9 +1,144 @@
-const { onCall } = require("firebase-functions/v2/https");
+const functions = require("firebase-functions");
 const admin = require("firebase-admin");
+const cors = require("cors")({origin: true});
 
 admin.initializeApp();
 
-exports.submitMockOrder = onCall(async (data, context) => {
+const VALID_ROLES = ['buyer', 'seller', 'admin'];
+
+exports.getUserRole = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated'
+    );
+  }
+
+  const { email } = data;
+  if (!email) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      'Email is required'
+    );
+  }
+
+  console.log('Attempting to fetch user document for email:', email);
+  
+  const userDoc = await admin.firestore()
+    .collection("users")
+    .doc(email)
+    .get();
+
+  console.log('Firestore response:', {
+    exists: userDoc.exists,
+    data: userDoc.exists ? userDoc.data() : null
+  });
+
+  if (!userDoc.exists) {
+    throw new functions.https.HttpsError(
+      'not-found',
+      'User profile not found'
+    );
+  }
+
+  const userData = userDoc.data();
+  const role = userData.role;
+
+  if (!role || !VALID_ROLES.includes(role)) {
+    throw new functions.https.HttpsError(
+      'invalid-argument',
+      `Invalid user role. Must be one of: ${VALID_ROLES.join(', ')}`
+    );
+  }
+
+  console.log('Returning user data:', { role });
+  return { role };
+});
+
+exports.getAllProducts = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated'
+    );
+  }
+
+  try {
+    const productsSnapshot = await admin.firestore().collection('products').get();
+    const products = [];
+    productsSnapshot.forEach(doc => {
+      products.push({
+        id: doc.id,
+        ...doc.data()
+      });
+    });
+    return { products };
+  } catch (error) {
+    console.error('Error getting products:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to get products'
+    );
+  }
+});
+
+exports.getAllUsers = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'Must be authenticated'
+    );
+  }
+
+  try {
+    const usersSnapshot = await admin.firestore()
+      .collection("users")
+      .get();
+
+    const users = [];
+    usersSnapshot.forEach(doc => {
+      users.push({ id: doc.id, ...doc.data() });
+    });
+
+    return { users };
+  } catch (error) {
+    console.error('Error getting users:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to get users'
+    );
+  }
+});
+
+exports.getAllComplaints = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'Must be authenticated'
+    );
+  }
+
+  try {
+    const complaintsSnapshot = await admin.firestore()
+      .collection("complaints")
+      .get();
+
+    const complaints = [];
+    complaintsSnapshot.forEach(doc => {
+      complaints.push({ id: doc.id, ...doc.data() });
+    });
+
+    return { complaints };
+  } catch (error) {
+    console.error('Error getting complaints:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to get complaints'
+    );
+  }
+});
+
+exports.submitMockOrder = functions.https.onCall(async (data, context) => {
   try {
     console.log('Function called with context:', {
       auth: context.auth ? {
@@ -19,7 +154,10 @@ exports.submitMockOrder = onCall(async (data, context) => {
     // Verify authentication
     if (!context.auth) {
       console.error('Authentication failed - No auth context');
-      throw new Error("You must be logged in to complete this purchase");
+      throw new functions.https.HttpsError(
+        'unauthenticated',
+        "You must be logged in to complete this purchase"
+      );
     }
 
     const { items, total, email, userId, timestamp } = data;
@@ -30,7 +168,10 @@ exports.submitMockOrder = onCall(async (data, context) => {
     });
 
     if (!items || !Array.isArray(items) || items.length === 0) {
-      throw new Error("Invalid or empty cart items");
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        "Invalid or empty cart items"
+      );
     }
 
     // Create order document
@@ -53,14 +194,20 @@ exports.submitMockOrder = onCall(async (data, context) => {
       const productDoc = await productRef.get();
 
       if (!productDoc.exists) {
-        throw new Error(`Product ${item.id} not found`);
+        throw new functions.https.HttpsError(
+          'not-found',
+          `Product ${item.id} not found`
+        );
       }
 
       const currentStock = productDoc.data().stock;
       const newStock = currentStock - item.quantity;
 
       if (newStock < 0) {
-        throw new Error(`Insufficient stock for ${item.name}`);
+        throw new functions.https.HttpsError(
+          'invalid-argument',
+          `Insufficient stock for ${item.name}`
+        );
       }
 
       batch.update(productRef, { stock: newStock });
@@ -87,6 +234,86 @@ exports.submitMockOrder = onCall(async (data, context) => {
         email: context.auth.token.email
       } : 'No auth'
     });
-    throw new Error(error.message || "An error occurred while processing your order");
+    throw new functions.https.HttpsError(
+      error.code || 'internal',
+      error.message || "An error occurred while processing your order"
+    );
+  }
+});
+
+exports.createUserDocument = functions.https.onCall(async (data, context) => {
+  try {
+    const { email, role } = data;
+
+    if (!email || !role) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Email and role are required'
+      );
+    }
+
+    if (!VALID_ROLES.includes(role)) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        `Invalid role. Must be one of: ${VALID_ROLES.join(', ')}`
+      );
+    }
+
+    // Create or update the user document
+    await admin.firestore()
+      .collection("users")
+      .doc(email)
+      .set({
+        email,
+        role,
+        createdAt: admin.firestore.FieldValue.serverTimestamp()
+      });
+
+    console.log('User document created successfully:', { email, role });
+    return { success: true };
+  } catch (error) {
+    console.error("Error creating user document:", error);
+    throw new functions.https.HttpsError(
+      error.code || 'internal',
+      error.message || 'Failed to create user document'
+    );
+  }
+});
+
+exports.getProduct = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError(
+      'unauthenticated',
+      'User must be authenticated'
+    );
+  }
+
+  try {
+    const { productId } = data;
+    if (!productId) {
+      throw new functions.https.HttpsError(
+        'invalid-argument',
+        'Product ID is required'
+      );
+    }
+
+    const productDoc = await admin.firestore().collection('products').doc(productId).get();
+    if (!productDoc.exists) {
+      throw new functions.https.HttpsError(
+        'not-found',
+        'Product not found'
+      );
+    }
+
+    return {
+      id: productDoc.id,
+      ...productDoc.data()
+    };
+  } catch (error) {
+    console.error('Error getting product:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to get product'
+    );
   }
 }); 

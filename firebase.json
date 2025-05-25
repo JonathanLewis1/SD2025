@@ -12,5 +12,27 @@
       ],
       "predeploy": []
     }
-  ]
+  ],
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "emulators": {
+    "functions": {
+      "port": 5001,
+      "host": "localhost"
+    },
+    "firestore": {
+      "port": 8082,
+      "host": "localhost"
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4001,
+      "host": "localhost"
+    },
+    "hub": {
+      "port": 4400,
+      "host": "localhost"
+    }
+  }
 }
