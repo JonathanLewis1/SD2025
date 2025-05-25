@@ -179,3 +179,67 @@ exports.makeAdmin = onCall({ cors: true }, async (request) => {
     throw new Error('Failed to make user admin: ' + error.message);
   }
 });
+
+exports.processCheckout = onCall({ cors: true }, async (request) => {
+  const {
+    cart,
+    deliveryType,
+    address,
+  } = request.data;
+
+  const buyer = request.auth?.token?.email;
+  if (!buyer) throw new Error("User must be logged in");
+
+  if (!Array.isArray(cart) || cart.length === 0) {
+    throw new Error("Cart is empty or invalid");
+  }
+
+  if (!address || !address.street || !address.suburb || !address.city || !address.postalCode) {
+    throw new Error("Incomplete address");
+  }
+
+  const products = cart.map(item => item.name);
+  const quantity = cart.map(item => item.quantity);
+  const sellersEmails = cart.map(item => item.email);
+  const Price = cart.map(item => item.price);
+  const image = cart.map(item => item.image);
+  const Total = Price.reduce((acc, val, i) => acc + val * quantity[i], 0);
+
+  try {
+    // Create the order
+    await db.collection('orders').add({
+      buyerEmail: buyer,
+      products,
+      quantity,
+      Price,
+      image,
+      sellersEmails,
+      DeliveryType: deliveryType,
+      DeliveryStatus: 'In Progress',
+      timestamp: new Date(),
+      Total,
+      StreetName: address.street,
+      suburb: address.suburb,
+      city: address.city,
+      postalCode: address.postalCode,
+    });
+
+    // Update product stock
+    for (const item of cart) {
+      const q = db.collection('products')
+        .where('name', '==', item.name)
+        .where('email', '==', item.email);
+
+      const snap = await q.get();
+      for (const docSnap of snap.docs) {
+        const ref = db.collection('products').doc(docSnap.id);
+        const current = docSnap.data().stock || 0;
+        await ref.update({ stock: Math.max(current - item.quantity, 0) });
+      }
+    }
+
+    return { success: true };
+  } catch (error) {
+    throw new Error("Checkout failed: " + error.message);
+  }
+});
