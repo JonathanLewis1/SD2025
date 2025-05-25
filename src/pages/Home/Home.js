@@ -1,37 +1,54 @@
 import React, { useEffect, useState } from 'react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../firebase';
+
+import Container   from '../../components/common/Container';
+import Header      from '../../components/common/Header';
+import Section     from '../../components/common/Section';
+import TextInput   from '../../components/common/TextInput';
+import Button      from '../../components/common/Button';
+
 import ProductCard from './ProductCard';
 
-const Home = () => {
-  const [products, setProducts] = useState([]);
-  const [searchTerm, setSearchTerm] = useState('');
+const CATEGORIES = [
+  'All',
+  'Jewelry',
+  'Clothing',
+  'Home Decor',
+  'Bath & Body',
+  'Stationery',
+  'Art & Prints',
+  'Ceramics',
+  'Textiles',
+  'Woodwork',
+  'Leather Goods',
+  'Other'
+];
+
+export default function Home() {
+  const [products, setProducts]         = useState([]);
+  const [searchTerm, setSearchTerm]     = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
-  const [minPrice, setMinPrice] = useState('');
-  const [maxPrice, setMaxPrice] = useState('');
+  const [minPrice, setMinPrice]         = useState('');
+  const [maxPrice, setMaxPrice]         = useState('');
 
   useEffect(() => {
-    const fetchProducts = async () => {
-      const querySnapshot = await getDocs(collection(db, 'products'));
-      const data = querySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setProducts(data);
-    };
-
+    async function fetchProducts() {
+      const snap = await getDocs(collection(db, 'products'));
+      setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    }
     fetchProducts();
   }, []);
 
-  const filteredProducts = products.filter(product => {
-    const matchesSearch = product.name?.toLowerCase().trim().includes(searchTerm.toLowerCase().trim());
-    const matchesCategory = selectedCategory === 'All' || product.category === selectedCategory;
-    const matchesMin = minPrice === '' || product.price >= parseFloat(minPrice);
-    const matchesMax = maxPrice === '' || product.price <= parseFloat(maxPrice);
-    return matchesSearch && matchesCategory && matchesMin && matchesMax;
+  const filtered = products.filter(p => {
+    const nameMatch = p.name?.toLowerCase().includes(searchTerm.toLowerCase());
+    const catMatch  = selectedCategory === 'All' || p.category === selectedCategory;
+    const minMatch  = minPrice === '' || p.price >= parseFloat(minPrice);
+    const maxMatch  = maxPrice === '' || p.price <= parseFloat(maxPrice);
+    return nameMatch && catMatch && minMatch && maxMatch;
   });
 
-  const handleReset = () => {
+  const resetFilters = () => {
     setSearchTerm('');
     setSelectedCategory('All');
     setMinPrice('');
@@ -39,143 +56,115 @@ const Home = () => {
   };
 
   return (
-    <div style={styles.container}>
-      <h1 style={styles.heading}>Explore Products</h1>
+    <Container styleProps={{ padding: 32, minHeight: '100vh', backgroundColor: '#ffffff' }}>
+      <Header
+        level={1}
+        styleProps={{ fontSize: 36, marginBottom: 24, textAlign: 'center', color: '#000' }}
+      >
+        Explore Products
+      </Header>
 
-      <div style={styles.filterPanel}>
-        <h3 style={styles.subheading}>Filter by:</h3>
-
-        <select
-          value={selectedCategory}
-          onChange={(e) => setSelectedCategory(e.target.value)}
-          style={styles.dropdown}
+       <Section
+       as="section"
+        styleProps={{
+          display: 'flex',
+          gap: 12,
+          flexWrap: 'wrap',    
+         paddingBottom: 12,
+          marginBottom: 24
+        }}
+      >
+        <Button
+          onClick={resetFilters}
+          styleProps={{
+            flex: '0 0 auto',
+            padding: '8px 12px',
+            backgroundColor: '#fef2f2',
+            color: '#b91c1c',
+            borderRadius: 8
+          }}
         >
-          <option value="All">All Categories</option>
-          <option value="Jewelry">Jewelry</option>
-          <option value="Clothing">Clothing</option>
-          <option value="Home Decor">Home Decor</option>
-          <option value="Woodwork">Woodwork</option>
-          <option value="Art">Art</option>
-          <option value="Other">Other</option>
-        </select>
+          Reset Filters
+        </Button>
 
-        <input
-          type="text"
-          placeholder="Search for a product..."
+        <TextInput
+          as="select"
+          value={selectedCategory}
+          onChange={e => setSelectedCategory(e.target.value)}
+          styleProps={{
+            flex: '0 0 auto',
+            width: 'max-content',
+            padding: '8px 12px',
+            borderRadius: 8,
+            border: '1px solid #ccc',
+            fontSize: 14
+          }}
+        >
+          {CATEGORIES.map(cat => (
+            <option key={cat} value={cat === 'All' ? '' : cat}>
+              {cat}
+            </option>
+          ))}
+        </TextInput>
+
+        <TextInput
+          placeholder="Search…"
           value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          style={styles.searchInput}
+          onChange={e => setSearchTerm(e.target.value)}
+          styleProps={{
+            flex: '1 0 200px',
+            padding: '8px',
+            borderRadius: 8,
+            border: '1px solid #ccc'
+          }}
         />
 
-        <div style={styles.priceFilter}>
-          <input
-            type="number"
-            placeholder="Min Price"
-            value={minPrice}
-            onChange={(e) => setMinPrice(e.target.value)}
-            style={styles.priceInput}
-          />
-          <input
-            type="number"
-            placeholder="Max Price"
-            value={maxPrice}
-            onChange={(e) => setMaxPrice(e.target.value)}
-            style={styles.priceInput}
-          />
-        </div>
+        <TextInput
+          type="number"
+          placeholder="Min Price"
+          value={minPrice}
+          onChange={e => setMinPrice(e.target.value)}
+          styleProps={{
+            flex: '0 0 100px',
+            padding: '8px',
+            borderRadius: 8,
+            border: '1px solid #ccc'
+          }}
+        />
 
-        <button onClick={handleReset} style={styles.resetButton}>
-          Reset Filters
-        </button>
-      </div>
+        <TextInput
+          type="number"
+          placeholder="Max Price"
+          value={maxPrice}
+          onChange={e => setMaxPrice(e.target.value)}
+          styleProps={{
+            flex: '0 0 100px',
+            padding: '8px',
+            borderRadius: 8,
+            border: '1px solid #ccc'
+          }}
+        />
+      </Section>
 
-      <div style={styles.productGrid}>
-        {filteredProducts.length > 0 ? (
-          filteredProducts.map(product => (
-            <ProductCard key={product.id} product={product} />
-          ))
+      <Section
+        as="section"
+        styleProps={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: 16,
+          width: '100%',
+          maxWidth: 1000,
+          margin: '0 auto'
+        }}
+      >
+        {filtered.length > 0 ? (
+          filtered.map(p => <ProductCard key={p.id} product={p} />)
         ) : (
-          <p>No products found.</p>
+          <Header level={2} styleProps={{ textAlign: 'center', width: '100%', color: '#000' }}>
+            No products found.
+          </Header>
         )}
-      </div>
-    </div>
+      </Section>
+    </Container>
   );
-};
-
-const styles = {
-  container: {
-    backgroundColor: '#feffdf',
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    flexDirection: 'column',
-    padding: 32,
-  },
-  heading: {
-    fontSize: 36,
-    fontWeight: 'bold',
-    marginBottom: 24,
-    color: '#3b82f6',
-  },
-  filterPanel: {
-    backgroundColor: '#ffffff',
-    padding: 20,
-    borderRadius: 12,
-    boxShadow: '0 2px 8px rgba(0,0,0,0.1)',
-    marginBottom: 24,
-    width: '100%',
-    maxWidth: 500,
-    display: 'flex',
-    flexDirection: 'column',
-    gap: 12,
-  },
-  subheading: {
-    fontSize: 16,
-    fontWeight: 600,
-    color: '#555',
-    marginBottom: 4,
-  },
-  dropdown: {
-    padding: '12px 16px',
-    borderRadius: 8,
-    border: '1px solid #ccc',
-    fontSize: 16,
-  },
-  searchInput: {
-    padding: '12px 16px',
-    borderRadius: 8,
-    border: '1px solid #ccc',
-    fontSize: 16,
-  },
-  priceFilter: {
-    display: 'flex',
-    gap: 12,
-  },
-  priceInput: {
-    flex: 1,
-    padding: '10px 14px',
-    borderRadius: 8,
-    border: '1px solid #ccc',
-    fontSize: 16,
-  },
-  resetButton: {
-    padding: '10px 16px',
-    border: '1px solid #ccc',
-    backgroundColor: '#fef2f2',
-    color: '#b91c1c',
-    borderRadius: 8,
-    cursor: 'pointer',
-    fontWeight: 500,
-    alignSelf: 'flex-start',
-    marginTop: 8,
-  },
-  productGrid: {
-    display: 'grid',
-    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-    gap: 16,
-    width: '100%',
-    maxWidth: 1000,
-  },
-};
-
-export default Home;
+}
