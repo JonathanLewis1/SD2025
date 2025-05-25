@@ -94,11 +94,14 @@ exports.registerUserProfile = onCall({
 
 exports.getAllUsersv2 = onCall({ cors: true }, async (request) => {
   const snapshot = await db.collection('users').get();
-  return snapshot.docs.map(doc => ({
-    id: doc.id,
-    ...doc.data()
-  }));
+
+  const filteredUsers = snapshot.docs
+    .map(doc => ({ id: doc.id, ...doc.data() }))
+    .filter(user => user.role !== 'admin' && !user.banned);
+
+  return filteredUsers;
 });
+
 
 exports.getAllComplaintsv2 = onCall({ cors: true }, async (request) => {
   const snapshot = await db.collection('complaints').get();
@@ -148,4 +151,31 @@ exports.isEmailBanned = onCall({ cors: true }, async (request) => {
   const docSnap = await docRef.get();
 
   return { banned: docSnap.exists };
+});
+
+// Add makeAdmin function
+exports.makeAdmin = onCall({ cors: true }, async (request) => {
+  // Check if the caller is authenticated
+  if (!request.auth) {
+    throw new Error('Not authenticated');
+  }
+
+  // Get the caller's role
+  const callerDoc = await db.collection('users').doc(request.auth.uid).get();
+  if (!callerDoc.exists || callerDoc.data().role !== 'admin') {
+    throw new Error('Not authorized. Only admins can make other users admin.');
+  }
+
+  const { userId } = request.data;
+  if (!userId) {
+    throw new Error('Missing user ID');
+  }
+
+  try {
+    // Update the user's role to admin
+    await db.collection('users').doc(userId).update({ role: 'admin' });
+    return { success: true };
+  } catch (error) {
+    throw new Error('Failed to make user admin: ' + error.message);
+  }
 });

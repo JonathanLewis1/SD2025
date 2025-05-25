@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from 'react';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../firebase';
+import { getDoc, updateDoc } from 'firebase/firestore';
+import { db } from '../../firebase';
+import {doc} from 'firebase/firestore';
 //import { getAllUsersv2 } from '../../../functions';
 
 const Admin = () => {
   const [users, setUsers] = useState([]);
   const [complaints, setComplaints] = useState([]);
+  const [error, setError] = useState('');
 
   useEffect(() => {
     fetchUsers();
@@ -25,14 +29,36 @@ const Admin = () => {
   };
 
   const banUser = async (userId, email) => {
-  const banUserFn = httpsCallable(functions, 'banUser');
-  await banUserFn({ userId, email });
-  setUsers(prev => prev.filter(user => user.id !== userId));
-};
+    try {
+      const banUserFn = httpsCallable(functions, 'banUser');
+      await banUserFn({ userId, email });
+      setUsers(prev => prev.filter(user => user.id !== userId));
+    } catch (error) {
+      setError('Error banning user: ' + error.message);
+      console.error('Error banning user:', error);
+    }
+  };
+
+  const makeAdmin = async (userId) => {
+    try {
+      const makeAdminFn = httpsCallable(functions, 'makeAdmin');
+      await makeAdminFn({ userId });
+      // Update the local state to reflect the change
+      setUsers(prev => prev.map(user => 
+        user.id === userId 
+          ? { ...user, role: 'admin' }
+          : user
+      ));
+    } catch (error) {
+      setError('Error making user admin: ' + error.message);
+      console.error('Error making user admin:', error);
+    }
+  };
 
   return (
     <div style={styles.container}>
       <h1 style={styles.heading}>Admin Dashboard</h1>
+      {error && <div style={styles.error}>{error}</div>}
 
       <section style={styles.panel}>
         <h2 style={styles.subheading}>Users</h2>
@@ -43,7 +69,8 @@ const Admin = () => {
               <th style={styles.headerCell}>Last Name</th>
               <th style={styles.headerCell}>Email</th>
               <th style={styles.headerCell}>Role</th>
-              <th style={styles.headerCell}>Action</th>
+              <th style={styles.headerCell}>Ban Account</th>
+              <th style={styles.headerCell}>Change Status</th>
             </tr>
           </thead>
           <tbody>
@@ -54,8 +81,21 @@ const Admin = () => {
                 <td style={styles.cell}>{user.email}</td>
                 <td style={styles.cell}>{user.role}</td>
                 <td style={styles.cell}>
-                  <button onClick={() => banUser(user.id, user.email)} style={styles.button}>
+                  <button 
+                    onClick={() => banUser(user.id, user.email)} 
+                    style={styles.button}
+                    disabled={user.role === 'admin'}
+                  >
                     Ban
+                  </button>
+                </td>
+                <td style={styles.cell}>
+                  <button 
+                    onClick={() => makeAdmin(user.id)} 
+                    style={styles.button2}
+                    disabled={user.role === 'admin'}
+                  >
+                    Make Admin
                   </button>
                 </td>
               </tr>
@@ -140,6 +180,23 @@ const styles = {
     borderRadius: 8,
     cursor: 'pointer',
     fontWeight: '500'
+  },
+  button2: {
+    backgroundColor: '#008000',
+    color: '#ffffff',
+    padding: '8px 12px',
+    border: 'none',
+    borderRadius: 8,
+    cursor: 'pointer',
+    fontWeight: '500'
+  },
+  error: {
+    backgroundColor: '#fee2e2',
+    color: '#dc2626',
+    padding: '12px',
+    borderRadius: 8,
+    marginBottom: 16,
+    textAlign: 'center'
   }
 };
 
