@@ -1,86 +1,100 @@
-import React from 'react';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import SellerReport from './SellerReport';
-import { getDocs } from 'firebase/firestore';
-import { exportToCSV } from './exportCSV';
+import React from 'react'
+import { render, screen, waitFor, fireEvent } from '@testing-library/react'
+import SellerReport from './SellerReport'
+import { exportToCSV } from './exportCSV'
 
+// Mock out your firebase config so that `db` is a dummy object
+jest.mock('../../firebase', () => ({
+  db: {}
+}))
+
+// Mock the firestore methods
 jest.mock('firebase/firestore', () => ({
   collection: jest.fn(),
   query: jest.fn(),
   where: jest.fn(),
-  getDocs: jest.fn(),
-}));
+  getDocs: jest.fn()
+}))
 
-jest.mock('../../firebase', () => ({
-  db: {},
-}));
-
+// Spy on exportToCSV
 jest.mock('./exportCSV', () => ({
-  exportToCSV: jest.fn(),
-}));
+  exportToCSV: jest.fn()
+}))
 
-const fakeOrders = [
-  { timestamp: '2024-01-01T12:00:00Z', quantity: 2 },
-  { timestamp: '2024-01-01T13:00:00Z', quantity: 1 },
-  { timestamp: '2024-01-02T14:00:00Z', quantity: 3 },
-];
-
-const fakeProducts = [
-  { name: 'Item A', stock: 4, price: 100, description: 'Nice item', image: 'img.jpg' },
-  { name: 'Item B', stock: 2, price: 50, description: 'Great item', image: 'img2.jpg' },
-];
+// Pull in the mocked getDocs
+import { getDocs } from 'firebase/firestore'
 
 describe('SellerReport Component', () => {
-  // test('Given order data, When Sales Trends tab is loaded and Export clicked, Then sales data is shown and exported', async () => {
-  //   getDocs.mockResolvedValueOnce({ docs: fakeOrders.map((d) => ({ data: () => d })) }); // orders
-  //   getDocs.mockResolvedValueOnce({ docs: [] }); // products
+  const fakeDocs = [
+    { data: () => ({ name: 'ItemA', stock: 5, price: 100, description: 'DescA' }) },
+    { data: () => ({ name: 'ItemB', stock: 2, price:  50, description: 'DescB' }) }
+  ]
 
-  //   render(<SellerReport userEmail="seller@example.com" />);
+  beforeEach(() => {
+    jest.clearAllMocks()
+  })
 
-  //   expect(screen.getByText(/Dashboard Reports/i)).toBeInTheDocument();
+  test('Given no userEmail, Then only header row renders and export uses empty array', () => {
+    // Arrange
+    getDocs.mockResolvedValue({ docs: [] })
 
-  //   await waitFor(() => {
-  //     expect(screen.getByText(/Sales Trends/i)).toBeInTheDocument();
-  //     expect(screen.getByText('2024-01-01')).toBeInTheDocument();
-  //     expect(screen.getAllByText('3').length).toBeGreaterThan(0); // quantity 2 + 1
-  //     expect(screen.getByText('2024-01-02')).toBeInTheDocument();
-  //   });
+    // Act
+    render(<SellerReport userEmail={null} refreshKey={0} />)
 
-  //   fireEvent.click(screen.getByText(/Export as CSV/i));
-  //   expect(exportToCSV).toHaveBeenCalled();
-  // });
+    // Assert: header
+    expect(screen.getByRole('heading', { name: /inventory status/i })).toBeInTheDocument()
+    // Only the <thead> row exists
+    const allRows = screen.getAllByRole('row')
+    expect(allRows).toHaveLength(1)
 
-  test('Given product data, When Inventory Status tab is selected and Export clicked, Then product details are shown and exported', async () => {
-    getDocs.mockResolvedValueOnce({ docs: [] }); // orders
-    getDocs.mockResolvedValueOnce({ docs: fakeProducts.map((d) => ({ data: () => d })) }); // products
+    // Export button still triggers CSV export with []
+    fireEvent.click(screen.getByRole('button', { name: /export csv/i }))
+    expect(exportToCSV).toHaveBeenCalledWith([], 'null_INVENTORY')
+  })
 
-    render(<SellerReport userEmail="seller@example.com" />);
-    fireEvent.click(screen.getByText(/Inventory Status/i));
+  test('Given userEmail and data, When mounted, Then two body rows render and export uses that data', async () => {
+    // Arrange
+    getDocs.mockResolvedValue({ docs: fakeDocs })
 
+    // Act
+    render(<SellerReport userEmail="me@x.com" refreshKey={0} />)
+
+    // Assert: wait for both items
     await waitFor(() => {
-      expect(screen.getByText('Item A')).toBeInTheDocument();
-      expect(screen.getByText('100')).toBeInTheDocument();
-      expect(screen.getByText('Item B')).toBeInTheDocument();
-    });
+      expect(screen.getByText('ItemA')).toBeInTheDocument()
+      expect(screen.getByText('ItemB')).toBeInTheDocument()
+    })
 
-    fireEvent.click(screen.getByText(/Export as CSV/i));
-    expect(exportToCSV).toHaveBeenCalled();
-  });
+    // Header + 2 data rows
+    expect(screen.getAllByRole('row')).toHaveLength(3)
 
-  test('Given no interaction, When Custom View tab is clicked, Then filter options should be visible', () => {
-    render(<SellerReport userEmail="seller@example.com" />);
-    fireEvent.click(screen.getByText(/Custom View/i));
-    expect(screen.getByText(/filter by category/i)).toBeInTheDocument();
-  });
+    // Export CSV with mapped rows
+    fireEvent.click(screen.getByRole('button', { name: /export csv/i }))
+    expect(exportToCSV).toHaveBeenCalledWith([
+      { Name: 'ItemA', Quantity: 5, 'Price (R)': 100, Description: 'DescA' },
+      { Name: 'ItemB', Quantity: 2, 'Price (R)':  50, Description: 'DescB' }
+    ], 'me@x.com_INVENTORY')
+  })
 
-  test('Given fetch failure, When component loads, Then it logs error without crashing', async () => {
-    console.error = jest.fn();
-    getDocs.mockRejectedValue(new Error('Failed to fetch'));
+  test('Given refreshKey changes, When re-rendered, Then fetch is called again and table updates', async () => {
+    // First render returns fakeDocs
+    getDocs.mockResolvedValueOnce({ docs: fakeDocs })
+    const { rerender } = render(<SellerReport userEmail="u@x.com" refreshKey={0} />)
+    await waitFor(() => screen.getByText('ItemA'))
 
-    render(<SellerReport userEmail="seller@example.com" />);
+    // Next render returns newDocs
+    const newDocs = [
+      { data: () => ({ name: 'NewItem', stock:1, price:10, description:'NewDesc' }) }
+    ]
+    getDocs.mockResolvedValueOnce({ docs: newDocs })
 
+    // Rerender with bumped refreshKey
+    rerender(<SellerReport userEmail="u@x.com" refreshKey={1} />)
+
+    // Should update to show only NewItem
     await waitFor(() => {
-      expect(console.error).toHaveBeenCalledWith('Error fetching sales:', 'Failed to fetch');
-    });
-  });
-});
+      expect(screen.getByText('NewItem')).toBeInTheDocument()
+      expect(screen.queryByText('ItemA')).not.toBeInTheDocument()
+    })
+  })
+})
