@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { collection, getDocs } from 'firebase/firestore';
-import { db } from '../../firebase';
+import { httpsCallable } from 'firebase/functions';
+import { functions } from '../../firebase';
 
 import Container   from '../../components/common/Container';
 import Header      from '../../components/common/Header';
@@ -31,11 +31,23 @@ export default function Home() {
   const [selectedCategory, setSelectedCategory] = useState('All');
   const [minPrice, setMinPrice]         = useState('');
   const [maxPrice, setMaxPrice]         = useState('');
+  const [loading, setLoading]           = useState(true);
+  const [error, setError]               = useState(null);
 
   useEffect(() => {
     async function fetchProducts() {
-      const snap = await getDocs(collection(db, 'products'));
-      setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      try {
+        setLoading(true);
+        const getAllProducts = httpsCallable(functions, 'getAllProducts');
+        const result = await getAllProducts();
+        setProducts(result.data.products);
+        setError(null);
+      } catch (err) {
+        console.error('Error fetching products:', err);
+        setError('Failed to load products. Please try again later.');
+      } finally {
+        setLoading(false);
+      }
     }
     fetchProducts();
   }, []);
@@ -64,107 +76,138 @@ export default function Home() {
         Explore Products
       </Header>
 
-       <Section
-       as="section"
-        styleProps={{
-          display: 'flex',
-          gap: 12,
-          flexWrap: 'wrap',    
-         paddingBottom: 12,
-          marginBottom: 24
-        }}
-      >
-        <Button
-          onClick={resetFilters}
+      {error && (
+        <Section
+          as="div"
           styleProps={{
-            flex: '0 0 auto',
-            padding: '8px 12px',
-            backgroundColor: '#fef2f2',
+            padding: 16,
+            marginBottom: 24,
+            backgroundColor: '#fee2e2',
             color: '#b91c1c',
-            borderRadius: 8
+            borderRadius: 8,
+            textAlign: 'center'
           }}
         >
-          Reset Filters
-        </Button>
+          {error}
+        </Section>
+      )}
 
-        <TextInput
-          as="select"
-          value={selectedCategory}
-          onChange={e => setSelectedCategory(e.target.value)}
+      {loading ? (
+        <Section
+          as="div"
           styleProps={{
-            flex: '0 0 auto',
-            width: 'max-content',
-            padding: '8px 12px',
-            borderRadius: 8,
-            border: '1px solid #ccc',
-            fontSize: 14
+            textAlign: 'center',
+            padding: 32,
+            color: '#666'
           }}
         >
-          {CATEGORIES.map(cat => (
-            <option key={cat} value={cat === 'All' ? '' : cat}>
-              {cat}
-            </option>
-          ))}
-        </TextInput>
+          Loading products...
+        </Section>
+      ) : (
+        <>
+          <Section
+            as="section"
+            styleProps={{
+              display: 'flex',
+              gap: 12,
+              flexWrap: 'wrap',    
+              paddingBottom: 12,
+              marginBottom: 24
+            }}
+          >
+            <Button
+              onClick={resetFilters}
+              styleProps={{
+                flex: '0 0 auto',
+                padding: '8px 12px',
+                backgroundColor: '#fef2f2',
+                color: '#b91c1c',
+                borderRadius: 8
+              }}
+            >
+              Reset Filters
+            </Button>
 
-        <TextInput
-          placeholder="Search…"
-          value={searchTerm}
-          onChange={e => setSearchTerm(e.target.value)}
-          styleProps={{
-            flex: '1 0 200px',
-            padding: '8px',
-            borderRadius: 8,
-            border: '1px solid #ccc'
-          }}
-        />
+            <TextInput
+              as="select"
+              value={selectedCategory}
+              onChange={e => setSelectedCategory(e.target.value)}
+              styleProps={{
+                flex: '0 0 auto',
+                width: 'max-content',
+                padding: '8px 12px',
+                borderRadius: 8,
+                border: '1px solid #ccc',
+                fontSize: 14
+              }}
+            >
+              {CATEGORIES.map(cat => (
+                <option key={cat} value={cat === 'All' ? '' : cat}>
+                  {cat}
+                </option>
+              ))}
+            </TextInput>
 
-        <TextInput
-          type="number"
-          placeholder="Min Price"
-          value={minPrice}
-          onChange={e => setMinPrice(e.target.value)}
-          styleProps={{
-            flex: '0 0 100px',
-            padding: '8px',
-            borderRadius: 8,
-            border: '1px solid #ccc'
-          }}
-        />
+            <TextInput
+              placeholder="Search…"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              styleProps={{
+                flex: '1 0 200px',
+                padding: '8px',
+                borderRadius: 8,
+                border: '1px solid #ccc'
+              }}
+            />
 
-        <TextInput
-          type="number"
-          placeholder="Max Price"
-          value={maxPrice}
-          onChange={e => setMaxPrice(e.target.value)}
-          styleProps={{
-            flex: '0 0 100px',
-            padding: '8px',
-            borderRadius: 8,
-            border: '1px solid #ccc'
-          }}
-        />
-      </Section>
+            <TextInput
+              type="number"
+              placeholder="Min Price"
+              value={minPrice}
+              onChange={e => setMinPrice(e.target.value)}
+              styleProps={{
+                flex: '0 0 100px',
+                padding: '8px',
+                borderRadius: 8,
+                border: '1px solid #ccc'
+              }}
+            />
 
-      <Section
-        as="section"
-        styleProps={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: 16,
-          width: '100%',
-          maxWidth: 1000,
-          margin: '0 auto'
-        }}
-      >
-        {filtered.length > 0 ? (
-          filtered.map(p => <ProductCard key={p.id} product={p} />)
-        ) : (
-          <Header level={2} styleProps={{ textAlign: 'center', width: '100%', color: '#000' }}>
-            No products found.
-          </Header>
-        )}
-      </Section>
+            <TextInput
+              type="number"
+              placeholder="Max Price"
+              value={maxPrice}
+              onChange={e => setMaxPrice(e.target.value)}
+              styleProps={{
+                flex: '0 0 100px',
+                padding: '8px',
+                borderRadius: 8,
+                border: '1px solid #ccc'
+              }}
+            />
+          </Section>
+
+          <Section
+            as="section"
+            styleProps={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+              gap: 16,
+              width: '100%',
+              maxWidth: 1000,
+              margin: '0 auto'
+            }}
+          >
+            {filtered.length > 0 ? (
+              filtered.map(p => <ProductCard key={p.id} product={p} />)
+            ) : (
+              <Header level={2} styleProps={{ textAlign: 'center', width: '100%', color: '#000' }}>
+                No products found.
+              </Header>
+            )}
+          </Section>
+        </>
+      )}
     </Container>
   );
 }

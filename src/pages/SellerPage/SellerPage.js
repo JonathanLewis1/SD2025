@@ -1,15 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { db, auth } from '../../firebase';
-import {
-  collection,
-  query,
-  where,
-  getDocs,
-  addDoc,
-  deleteDoc,
-  doc,
-  updateDoc
-} from 'firebase/firestore';
+import { auth, functions } from '../../firebase';
+import { httpsCallable } from 'firebase/functions';
 import { onAuthStateChanged } from 'firebase/auth';
 
 import Container from '../../components/common/Container';
@@ -34,6 +25,7 @@ export default function SellerPage() {
     category: ''
   });
   const [error, setError] = useState('');
+  const [loading, setLoading] = useState(true);
   const [userEmail, setUserEmail] = useState(null);
   const reportRef = useRef(null);
 
@@ -48,10 +40,18 @@ export default function SellerPage() {
   }, []);
 
   const fetchProducts = async email => {
-    const snap = await getDocs(
-      query(collection(db, 'products'), where('email', '==', email))
-    );
-    setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    try {
+      setLoading(true);
+      const getSellerProducts = httpsCallable(functions, "getSellerProducts");
+      const result = await getSellerProducts({ email });
+      setProducts(result.data.products);
+      setError("");
+    } catch (err) {
+      console.error("Error fetching products:", err);
+      setError("Failed to load products. Please try again later.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleUpload = async e => {
@@ -69,7 +69,8 @@ export default function SellerPage() {
       return setError('Please log in first.');
     }
     try {
-      await addDoc(collection(db, 'products'), {
+      const addProduct = httpsCallable(functions, 'addProduct');
+      await addProduct({
         name,
         price: priceNum,
         description,
@@ -94,7 +95,8 @@ export default function SellerPage() {
       return;
     }
     try {
-      await updateDoc(doc(db, 'products', id), { stock: qtyNum });
+      const updateProductStock = httpsCallable(functions, 'updateProductStock');
+      await updateProductStock({ productId: id, stock: qtyNum });
       fetchProducts(userEmail);
       setReportKey(k => k + 1);
       alert('Stock updated successfully!');
@@ -105,7 +107,8 @@ export default function SellerPage() {
 
   const deleteProduct = async id => {
     try {
-      await deleteDoc(doc(db, 'products', id));
+      const deleteProduct = httpsCallable(functions, 'deleteProduct');
+      await deleteProduct({ productId: id });
       fetchProducts(userEmail);
       alert('Product deleted successfully!');
     } catch (err) {
@@ -193,54 +196,85 @@ export default function SellerPage() {
       <Header level={1} styleProps={{ marginTop: 48 }}>
         My Products
       </Header>
-      <Section
-        styleProps={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-          gap: 16
-        }}
-      >
-        {products.map(prod => (
-          <Card key={prod.id}>
-            <img src={prod.image} alt={prod.name} width={150} />
-            <h3>{prod.name}</h3>
-            <p>R{prod.price}</p>
-            <p>{prod.description}</p>
-            <p>Category: {prod.category}</p>
-            <p>
-              Stock:{' '}
-              <TextInput
-                type="number"
-                value={stockEdits[prod.id] ?? prod.stock}
-                onChange={e =>
-                  setStockEdits({ ...stockEdits, [prod.id]: e.target.value })
-                }
-                styleProps={{ width: 60, borderRadius: 4, padding: '4px' }}
-              />
-              <Button
-                onClick={() =>
-                  updateStock(prod.id, stockEdits[prod.id] ?? prod.stock)
-                }
-                styleProps={{ marginLeft: 8 }}
+      {loading ? (
+        <Section styleProps={{ textAlign: 'center', padding: 32, color: '#666' }}>
+          Loading products...
+        </Section>
+      ) : (
+        <Section
+          styleProps={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+            gap: 16
+          }}
+        >
+          {products.length > 0 ? (
+            products.map(p => (
+              <Card
+                key={p.id}
+                styleProps={{
+                  padding: 16,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 12
+                }}
               >
-                Save
-              </Button>
-            </p>
-            <Button onClick={() => deleteProduct(prod.id)} styleProps={{ marginTop: 8 }}>
-              Delete
-            </Button>
-          </Card>
-        ))}
-      </Section>
+                <img
+                  src={p.image}
+                  alt={p.name}
+                  style={{
+                    width: '100%',
+                    aspectRatio: '4 / 3',
+                    objectFit: 'cover',
+                    borderRadius: 8
+                  }}
+                />
+                <Section as="h3" styleProps={{ margin: 0, fontSize: 18 }}>
+                  {p.name}
+                </Section>
+                <Section as="p" styleProps={{ margin: 0, fontWeight: 600 }}>
+                  R{p.price}
+                </Section>
+                <Section as="p" styleProps={{ margin: 0, color: '#666' }}>
+                  Stock: {p.stock}
+                </Section>
+                <TextInput
+                  type="number"
+                  placeholder="New stock"
+                  value={stockEdits[p.id] || ''}
+                  onChange={e => setStockEdits({ ...stockEdits, [p.id]: e.target.value })}
+                  styleProps={{ width: '100%' }}
+                />
+                <Button
+                  onClick={() => updateStock(p.id, stockEdits[p.id])}
+                  styleProps={{ width: '100%' }}
+                >
+                  Update Stock
+                </Button>
+                <Button
+                  onClick={() => deleteProduct(p.id)}
+                  styleProps={{
+                    width: '100%',
+                    backgroundColor: '#ef4444',
+                    color: '#fff'
+                  }}
+                >
+                  Delete
+                </Button>
+              </Card>
+            ))
+          ) : (
+            <Section styleProps={{ textAlign: 'center', padding: 32, color: '#666' }}>
+              No products found. Add your first product above!
+            </Section>
+          )}
+        </Section>
+      )}
 
-      <Section ref={reportRef} styleProps={{ marginTop: 48 }}>
-        <Header level={1}>Dashboard Reports</Header>
-      </Section>
-      <Section styleProps={{ maxWidth: 1000, margin: '0 auto' }}>
-        {/* <SellerReport userEmail={userEmail} /> */}
+      <div ref={reportRef}>
         <SellerReport userEmail={userEmail} refreshKey={reportKey} />
         <OrderReport userEmail={userEmail} />
-      </Section>
+      </div>
     </Container>
   );
 }
