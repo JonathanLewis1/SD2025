@@ -5,7 +5,12 @@
       "serve": "/static/{*rest}"
     },
     {
-      "route": "/*",
+      "route": "/checkout",         
+      "serve": "/index.html",        
+      "statusCode": 200
+    },
+    {
+      "route": "/*",                 
       "serve": "/index.html",
       "statusCode": 200
     }
