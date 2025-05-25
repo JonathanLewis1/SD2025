@@ -141,7 +141,8 @@ describe('Cart Component — Given/When/Then', () => {
     fireEvent.click(screen.getByRole('button', { name: /proceed to checkout/i }));
 
     expect(JSON.parse(localStorage.getItem('checkoutCart'))).toEqual(cart);
-    expect(window.open).toHaveBeenCalledWith('/checkout', '_blank', 'width=600,height=700');
+    expect(window.open).toHaveBeenCalledWith('/checkout', '_blank');
+
   });
 
   test('Given window.open throws, When clicking Proceed to Checkout, Then show an error alert', () => {
