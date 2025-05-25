@@ -12,64 +12,53 @@
 // } from 'firebase/firestore';
 // import { onAuthStateChanged } from 'firebase/auth';
 
-const SellerPage = () => {
-  
 
+
+
+import React from 'react';
+import Container from '../../components/common/Container';
+import Header from '../../components/common/Header';
+import Section from '../../components/common/Section';
+import Card from '../../components/common/Card';
+
+export default function About() {
   return (
-    <div style = {styles.container}>
-      <h1 style={{ fontSize: 36, fontWeight: 'bold', color: '#3b82f6', textAlign: 'center', marginBottom: 24 }}>About Us</h1>  
-    <section style={styles.section}>
-      <article style = {styles.article}>
-      <p>At CraftNest, we’re more than just a team — we’re a family of creators, collaborators, and visionaries brought together by a shared passion for creativity and craftsmanship. </p>
-
-<p>We are five friends — Jacob Boner, Jake Shapiro, Jonathan Lewis, Aharon Zagnoev, and Carl Germishuys — each bringing our own unique skills and ideas to the table. From design and development to strategy and storytelling, we’ve built CraftNest with a simple goal in mind: to create a platform where creativity thrives. </p>
-
-<p>CraftNest is a vibrant online space where artisans, makers, and small businesses can showcase their work and connect with people who value thoughtful, handmade products. Whether it's bespoke jewelry, handcrafted home goods, or digital art with soul, we’re here to help creators share their passions with the world.</p>
-
-<p>What do we do? We build tools that empower makers. We support their journey from inspiration to creation to sale. And most importantly, we celebrate the love and intention behind every craft.</p>
-
-<p>We love what we do because we believe in creativity — in its power to tell stories, bring people together, and make the world a little more beautiful.</p>
-
-<p style = {styles.subheading}>Welcome to CraftNest — where craft meets community.</p>
-</article>
-    </section>
-    </div>
+    <Container>
+      <Section styleProps={{ display: 'flex', justifyContent: 'center' }}>
+        <Header level={1} styleProps={{ textAlign: 'center' }}>
+          About Us
+        </Header>
+      </Section>
+      <Section>
+        <Card styleProps={{ maxWidth: 800, margin: '0 auto', lineHeight: '1.6' }}>
+          <p>
+            At CraftNest, we’re more than just a team — we’re a family of creators, collaborators,
+            and visionaries brought together by a shared passion for creativity and craftsmanship.
+          </p>
+          <p>
+            We are five friends — Jacob Boner, Jake Shapiro, Jonathan Lewis, Aharon Zagnoev, and
+            Carl Germishuys — each bringing our own unique skills and ideas to the table. From design
+            and development to strategy and storytelling, we’ve built CraftNest with a simple goal in
+            mind: to create a platform where creativity thrives.
+          </p>
+          <p>
+            CraftNest is a vibrant online space where artisans, makers, and small businesses can
+            showcase their work and connect with people who value thoughtful, handmade products.
+          </p>
+          <p>
+            What do we do? We build tools that empower makers. We support their journey from
+            inspiration to creation to sale. And most importantly, we celebrate the love and intention
+            behind every craft.
+          </p>
+          <p>
+            We love what we do because we believe in creativity — in its power to tell stories, bring
+            people together, and make the world a little more beautiful.
+          </p>
+          <p style={{ fontWeight: 600, fontSize: 18, marginTop: 16 }}>
+            Welcome to CraftNest — where craft meets community.
+          </p>
+        </Card>
+      </Section>
+    </Container>
   );
-};
-
-
-const styles = {
-  subheading: {
-    fontSize: 24,
-    fontWeight: 600,
-    color: '#555',
-    marginBottom: 4,
-  },
-  section: {
-  display: 'flex',
-  justifyContent: 'center',
-  padding: '1.5rem',
-  backgroundColor: '#feffdf',
-},
-
-  article: {
-  maxWidth: '600px',
-  width: '100%',
-  backgroundColor: '#ffffff',
-  padding: '24px 32px',
-  borderRadius: 12,
-  boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)',
-  fontFamily: 'Arial, sans-serif',
-  lineHeight: '1.6',
-},
-  container: {
-    backgroundColor: '#feffdf',
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    flexDirection: 'column',
-    padding: 32,
-  },
-};
-
-export default SellerPage;
+}
