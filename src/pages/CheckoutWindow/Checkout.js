@@ -28,6 +28,7 @@ export default function Checkout() {
   const [card, setCard] = useState('');
   const [cvv, setCvv] = useState('');
   const [exp, setExp] = useState('');
+  const [DeliveryType, setDeliveryType] = useState('standard');
   const [address, setAddress] = useState({
     street: '',
     suburb: '',
@@ -94,8 +95,8 @@ export default function Checkout() {
         Price,
         image,
         sellersEmails,
-        DeliveryType: 'Standard',
-        DeliveryStatus: 'Delivered',
+        DeliveryType,
+        DeliveryStatus: 'In Progress',
         timestamp: new Date(),
         Total,
         StreetName: address.street,
@@ -224,6 +225,15 @@ export default function Checkout() {
               value={address.postalCode}
               onChange={e => setAddress({ ...address, postalCode: e.target.value })}
             />
+                <TextInput
+                          as="select"
+                          value={DeliveryType}
+                          onChange={e => setDeliveryType(e.target.value)}
+                        >
+                          <option value="priority">Priority Delivery</option>
+                          <option value="standard">Standard Delivery</option>
+                        </TextInput>
+            
             <Button type="submit">Submit Payment</Button>
           </form>
         </Card>
