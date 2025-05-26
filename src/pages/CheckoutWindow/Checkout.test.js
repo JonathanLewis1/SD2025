@@ -5,6 +5,12 @@ import { httpsCallable } from 'firebase/functions'
 import { functions, auth } from '../../firebase'
 import { BrowserRouter } from 'react-router-dom'
 
+const mockNavigate = jest.fn();
+jest.mock('react-router-dom', () => ({
+  ...jest.requireActual('react-router-dom'),
+  useNavigate: () => mockNavigate,
+}));
+
 // mock CartContext
 jest.mock('../../context/CartContext', () => ({
   useCart: () => ({ clearCart: jest.fn() })
@@ -20,19 +26,17 @@ jest.mock('../../firebase', () => ({
 }))
 
 describe('Checkout Component', () => {
-  let originalLocalStorage, closeSpy
+  let mockAlert;
 
   beforeEach(() => {
-    originalLocalStorage = { ...window.localStorage }
-    window.localStorage.clear()
-    jest.clearAllMocks()
-    closeSpy = jest.spyOn(window, 'close').mockImplementation(() => {})
+    localStorage.clear();
+    jest.clearAllMocks();
+    mockAlert = jest.spyOn(window, 'alert').mockImplementation(() => {});
   })
 
   afterEach(() => {
-    window.localStorage.clear()
-    Object.assign(window.localStorage, originalLocalStorage)
-    closeSpy.mockRestore()
+    localStorage.clear();
+    mockAlert.mockRestore();
   })
 
   function renderWithRouter() {
@@ -43,16 +47,14 @@ describe('Checkout Component', () => {
     )
   }
 
-  test('Given no cart data, when component mounts, then show "Your cart is empty"', () => {
+  test('Given no cart data, when component mounts, then navigate to cart', () => {
     renderWithRouter()
-    expect(screen.getByText(/Your cart is empty/i)).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: /Close Window/i })).toBeInTheDocument()
+    expect(mockNavigate).toHaveBeenCalledWith('/cart')
   })
-
 
   test('Given cart items but invalid card number, when user submits, then show card validation error', async () => {
     const cartItems = [{ name: 'Item1', quantity: 1, price: 10 }]
-    window.localStorage.setItem('checkoutCart', JSON.stringify(cartItems))
+    localStorage.setItem('checkoutCart', JSON.stringify(cartItems))
     renderWithRouter()
 
     fireEvent.change(screen.getByPlaceholderText(/Card Number/i), { target: { value: '123' } })
@@ -70,7 +72,7 @@ describe('Checkout Component', () => {
   test('Given valid form but no user logged in, when user submits, then show "User not logged in."', async () => {
     delete auth.currentUser
     const cartItems = [{ name: 'Item1', quantity: 1, price: 10 }]
-    window.localStorage.setItem('checkoutCart', JSON.stringify(cartItems))
+    localStorage.setItem('checkoutCart', JSON.stringify(cartItems))
     renderWithRouter()
 
     fireEvent.change(screen.getByPlaceholderText(/Card Number/i), { target: { value: '1'.repeat(16) } })
@@ -85,13 +87,13 @@ describe('Checkout Component', () => {
     expect(await screen.findByText(/User not logged in\./i)).toBeInTheDocument()
   })
 
-  test('Given valid form and user, when processCheckout succeeds, then window.close is called', async () => {
+  test('Given valid form and user, when processCheckout succeeds, then show success and navigate to home', async () => {
     auth.currentUser = { uid: 'u1' }
     const mockFn = jest.fn().mockResolvedValue({})
     httpsCallable.mockReturnValue(mockFn)
 
     const cartItems = [{ name: 'Item1', quantity: 2, price: 5 }]
-    window.localStorage.setItem('checkoutCart', JSON.stringify(cartItems))
+    localStorage.setItem('checkoutCart', JSON.stringify(cartItems))
     renderWithRouter()
 
     fireEvent.change(screen.getByPlaceholderText(/Card Number/i), { target: { value: '1'.repeat(16) } })
@@ -114,7 +116,8 @@ describe('Checkout Component', () => {
           postalCode: '0000'
         })
       })
-      expect(closeSpy).toHaveBeenCalled()
+      expect(mockAlert).toHaveBeenCalledWith('Thank you for your purchase!')
+      expect(mockNavigate).toHaveBeenCalledWith('/home')
     })
   })
 
@@ -124,7 +127,7 @@ describe('Checkout Component', () => {
     httpsCallable.mockReturnValue(mockFn)
 
     const cartItems = [{ name: 'Item1', quantity: 1, price: 5 }]
-    window.localStorage.setItem('checkoutCart', JSON.stringify(cartItems))
+    localStorage.setItem('checkoutCart', JSON.stringify(cartItems))
     renderWithRouter()
 
     fireEvent.change(screen.getByPlaceholderText(/Card Number/i), { target: { value: '1'.repeat(16) } })
@@ -137,5 +140,14 @@ describe('Checkout Component', () => {
     fireEvent.click(screen.getByRole('button', { name: /Submit Payment/i }))
 
     expect(await screen.findByText(/Order processing failed: fail/i)).toBeInTheDocument()
+  })
+
+  test('Given cart items, when clicking Back to Cart, then navigate to cart', () => {
+    const cartItems = [{ name: 'Item1', quantity: 1, price: 10 }]
+    localStorage.setItem('checkoutCart', JSON.stringify(cartItems))
+    renderWithRouter()
+
+    fireEvent.click(screen.getByRole('button', { name: /Back to Cart/i }))
+    expect(mockNavigate).toHaveBeenCalledWith('/cart')
   })
 })

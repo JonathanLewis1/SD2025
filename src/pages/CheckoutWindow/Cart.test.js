@@ -17,19 +17,9 @@ jest.mock('../../context/CartContext', () => ({
 }));
 
 describe('Cart Component — Given/When/Then', () => {
-  const originalOpen = window.open;
-  const originalAlert = window.alert;
-
   beforeEach(() => {
     jest.clearAllMocks();
-    window.open = jest.fn();
-    window.alert = jest.fn();
     localStorage.clear();
-  });
-
-  afterAll(() => {
-    window.open = originalOpen;
-    window.alert = originalAlert;
   });
 
   function renderCart() {
@@ -128,7 +118,7 @@ describe('Cart Component — Given/When/Then', () => {
     expect(removeFromCart).toHaveBeenCalledWith(item.id);
   });
 
-  test('Given cart with items, When clicking Proceed to Checkout succeeds, Then checkoutCart is saved and window.open is called', () => {
+  test('Given cart with items, When clicking Proceed to Checkout, Then save cart and navigate to checkout', () => {
     const cart = [{ id: '1', name: 'A', image: '', price: 2, quantity: 1, stock: 5 }];
     useCart.mockReturnValue({
       cart,
@@ -141,11 +131,10 @@ describe('Cart Component — Given/When/Then', () => {
     fireEvent.click(screen.getByRole('button', { name: /proceed to checkout/i }));
 
     expect(JSON.parse(localStorage.getItem('checkoutCart'))).toEqual(cart);
-    expect(window.open).toHaveBeenCalledWith('/checkout', '_blank');
-
+    expect(mockNavigate).toHaveBeenCalledWith('/checkout');
   });
 
-  test('Given window.open throws, When clicking Proceed to Checkout, Then show an error alert', () => {
+  test('Given localStorage throws error, When clicking Proceed to Checkout, Then show an error alert', () => {
     const cart = [{ id: '1', name: 'A', image: '', price: 2, quantity: 1, stock: 5 }];
     useCart.mockReturnValue({
       cart,
@@ -153,13 +142,19 @@ describe('Cart Component — Given/When/Then', () => {
       updateQuantity: jest.fn(),
       getTotal: jest.fn().mockReturnValue(2),
     });
-    window.open.mockImplementation(() => { throw new Error('failed'); });
+    
+    const mockAlert = jest.spyOn(window, 'alert').mockImplementation(() => {});
+    const mockSetItem = jest.spyOn(Storage.prototype, 'setItem');
+    mockSetItem.mockImplementation(() => { throw new Error('failed'); });
 
     renderCart();
     fireEvent.click(screen.getByRole('button', { name: /proceed to checkout/i }));
 
-    expect(window.alert).toHaveBeenCalledWith(
-      'There was an error opening the checkout window. Please try again.'
+    expect(mockAlert).toHaveBeenCalledWith(
+      'There was an error proceeding to checkout. Please try again.'
     );
+    
+    mockAlert.mockRestore();
+    mockSetItem.mockRestore();
   });
 });
