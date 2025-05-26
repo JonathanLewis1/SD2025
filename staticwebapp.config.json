@@ -1,0 +1,21 @@
+{
+  "navigationFallback": {
+    "rewrite": "/index.html",
+    "exclude": [
+      "/static/*",
+      "/favicon.ico",
+      "/robots.txt",
+      "/api/*"
+    ]
+  },
+  "routes": [
+    {
+      "route": "/static/*",
+      "serve": "/static/{*rest}"
+    },
+    {
+      "route": "/api/*",
+      "serve": "/api/{*rest}"
+    }
+  ]
+}
