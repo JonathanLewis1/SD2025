@@ -1,17 +1,6 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { useCart } from '../../context/CartContext';
 import { useNavigate } from 'react-router-dom';
-import {
-  collection,
-  addDoc,
-  updateDoc,
-  doc,
-  getDocs,
-  query,
-  where
-} from 'firebase/firestore';
 import { auth } from '../../firebase';
 import { httpsCallable } from 'firebase/functions';
 import { functions } from '../../firebase';
@@ -26,7 +15,6 @@ import TextInput from '../../components/common/TextInput';
 export default function Checkout() {
   const { clearCart } = useCart();
   const [cart, setCart] = useState([]);
-  const [submitted, setSubmitted] = useState(false);
   const [card, setCard] = useState('');
   const [cvv, setCvv] = useState('');
   const [exp, setExp] = useState('');
@@ -47,22 +35,14 @@ export default function Checkout() {
         setCart(JSON.parse(cartData));
       } else {
         setError('No cart data found');
+        navigate('/cart');
       }
     } catch (err) {
       console.error('Error reading cart data:', err);
       setError('Error reading cart data: ' + err.message);
+      navigate('/cart');
     }
-  }, []);
-
-  useEffect(() => {
-    if (submitted) {
-      if (window.opener) {
-        window.opener.localStorage.removeItem('cart');
-        window.opener.location.assign('/home');
-      }
-      window.close();
-    }
-  }, [submitted]);
+  }, [navigate]);
 
   const validate = () => {
     if (!/^\d{16}$/.test(card)) return 'Card number must be 16 digits.';
@@ -75,49 +55,40 @@ export default function Checkout() {
     return null;
   };
 
+  const handleSubmit = async () => {
+    const errorMsg = validate();
+    if (errorMsg) return setError(errorMsg);
 
-const handleSubmit = async () => {
-  const errorMsg = validate();
-  if (errorMsg) return setError(errorMsg);
+    if (!auth.currentUser) {
+      return setError("User not logged in.");
+    }
 
-  if (!auth.currentUser) {
-    return setError("User not logged in.");
-  }
+    try {
+      const processCheckout = httpsCallable(functions, 'processCheckout');
+      await processCheckout({
+        cart,
+        deliveryType: DeliveryType,
+        address
+      });
 
-  try {
-    const processCheckout = httpsCallable(functions, 'processCheckout');
-    await processCheckout({
-      cart,
-      deliveryType: DeliveryType,
-      address
-    });
+      // Clear both localStorage and cart context
+      localStorage.removeItem('checkoutCart');
+      clearCart();
 
-    localStorage.removeItem('checkoutCart');
-    setSubmitted(true);
-  } catch (err) {
-    setError("Order processing failed: " + err.message);
-  }
-};
-
+      // Show success message and redirect
+      alert('Thank you for your purchase!');
+      navigate('/home');
+    } catch (err) {
+      setError("Order processing failed: " + err.message);
+    }
+  };
 
   if (cart.length === 0) {
     return (
       <Container>
         <Section styleProps={{ textAlign: 'center' }}>
           <Header level={2}>Your cart is empty</Header>
-          <Button onClick={() => window.close()}>Close Window</Button>
-        </Section>
-      </Container>
-    );
-  }
-
-  if (submitted) {
-    return (
-      <Container>
-        <Section styleProps={{ textAlign: 'center' }}>
-          <Header level={2}>Thanks for your purchase</Header>
-          <p>You may now close this window.</p>
-          <Button onClick={() => window.close()}>Close Window</Button>
+          <Button onClick={() => navigate('/cart')}>Return to Cart</Button>
         </Section>
       </Container>
     );
@@ -199,16 +170,25 @@ const handleSubmit = async () => {
               value={address.postalCode}
               onChange={e => setAddress({ ...address, postalCode: e.target.value })}
             />
-                <TextInput
-                          as="select"
-                          value={DeliveryType}
-                          onChange={e => setDeliveryType(e.target.value)}
-                        >
-                          <option value="Priority">Priority Delivery</option>
-                          <option value="Standard">Standard Delivery</option>
-                        </TextInput>
+            <TextInput
+              as="select"
+              value={DeliveryType}
+              onChange={e => setDeliveryType(e.target.value)}
+            >
+              <option value="Priority">Priority Delivery</option>
+              <option value="Standard">Standard Delivery</option>
+            </TextInput>
             
             <Button type="submit">Submit Payment</Button>
+            <Button 
+              onClick={() => navigate('/cart')}
+              styleProps={{
+                backgroundColor: '#6b7280',
+                marginTop: 8
+              }}
+            >
+              Back to Cart
+            </Button>
           </form>
         </Card>
       </Section>

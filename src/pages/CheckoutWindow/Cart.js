@@ -1,5 +1,3 @@
-
-
 import React from "react";
 import { useCart } from "../../context/CartContext";
 import { useNavigate } from "react-router-dom";
@@ -22,11 +20,10 @@ export default function Cart() {
   const handleCheckout = () => {
     try {
       localStorage.setItem("checkoutCart", JSON.stringify(cart));
-      //window.open("/checkout", "_blank", "width=600,height=700");
-      window.open("/checkout", "_blank");
+      navigate("/checkout");
     } catch (err) {
-      console.error("Error opening checkout window:", err);
-      alert("There was an error opening the checkout window. Please try again.");
+      console.error("Error proceeding to checkout:", err);
+      alert("There was an error proceeding to checkout. Please try again.");
     }
   };
 
